@@ -77,16 +77,23 @@ function retailBlend(sku,so){const r=so&&so[sku]||{OFF:0,ON:0};let wo=r.OFF,wn=r
   const sh=wo+wn?wo/(wo+wn):.5;return {v:off*sh+on*(1-sh),share:sh}}
 
 // ---- static form
-$("#selNpp").innerHTML=NPP.map((n,i)=>`<option value="${i}">${n.code} · ${n.area}</option>`).join("");
+const zoneOf=n=>n.region||"Khác",zoneOfDis=id=>{const n=NPP.find(x=>x.id===id);return n?zoneOf(n):"Khác"};
+const ZONES=[...new Set(NPP.map(zoneOf))].sort();
+[$("#selZone"),$("#subZone")].forEach(el=>{el.innerHTML=`<option value="">Tất cả khu vực</option>`+ZONES.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join("")});
+function fillNpp(keep){const z=$("#selZone").value,list=NPP.map((n,i)=>[n,i]).filter(([n])=>!z||zoneOf(n)===z);
+  $("#selNpp").innerHTML=list.map(([n,i])=>`<option value="${i}">${n.code} · ${n.area}</option>`).join("");
+  $("#selNpp").value=list.some(([,i])=>i===keep)?keep:(list[0]?list[0][1]:0)}
+fillNpp(0);
+function setNpp(i){$("#selZone").value=zoneOf(NPP[i]);fillNpp(i)}
 $("#opT tbody").innerHTML=OPS.map(o=>`<tr><td class="lbl">${o[1]}<small>${o[2]} · ${GRP[o[3]]}</small></td><td>${inp(o[0]+"_q")}</td><td>${inp(o[0]+"_v")}</td><td>${inp(o[0]+"_s")}</td></tr>`).join("");
 $("#mkT tbody").innerHTML=MKS.map(o=>`<tr><td class="lbl">${o[1]}<small>${o[2]}</small></td><td>${inp(o[0]+"_v")}</td><td>${inp(o[0]+"_p")}</td></tr>`).join("");
 const row=o=>`<div class="row2"><label for="${o[0]}">${o[1]}<small>${o[2]} <span class="src">${o[3]==="GIS"?"GIS Input":"PnL Detail"}</span></small></label>${inp(o[0])}</div>`;
-$("#oiB").innerHTML=OIS.map(row).join("");$("#icB").innerHTML=`<div class="autobox">
+$("#oiB").innerHTML=OIS.map(row).join("");$("#icB").innerHTML=`<details class="autosec"${IS_ADMIN?" open":" hidden"}><summary>Tự tính Current account · Credit for Outlets</summary><div class="autobox">
   <div class="arow"><label class="sw"><input type="checkbox" id="autoCur"><span>Tự tính <b>Current account</b></span></label>
     <div class="f">Giá trị mua hàng SI ÷ ${inp("wDays")} ngày làm việc × ${inp("bufDays")} ngày dự phòng <label class="sw" style="font-size:12.5px"><input type="checkbox" id="siVat">+ VAT 10%</label></div></div>
   <div class="arow"><label class="sw"><input type="checkbox" id="autoCred"><span>Tự tính <b>Credit for Outlets</b></span></label>
     <div class="f">Sản lượng × giá bán BQ ÷ số ngày trong tháng × ${inp("credDays")} ngày công nợ</div></div>
-  <p class="hint" id="autoHint"></p></div>`+ICS.map(row).join("");
+  <p class="hint" id="autoHint"></p></div></details>`+ICS.map(row).join("");
 ["autoCur","autoCred","siVat"].forEach(id=>$("#"+id).addEventListener("change",()=>render(calc())));
 
 function fillMonths(keep){const n=cur(),ms=Object.keys(n.months).sort();
@@ -218,12 +225,16 @@ S.buyVat=LS.get("buyVat",true);
 const vatOf=sku=>/^H0\d/.test(sku)?0.08:0.10; // Heineken 0.0 (không cồn) 8%, bia 10%
 function buyPrice(sku){const t=typed(sku,"BUY");if(t)return {v:t,src:"input"};const a=S.si;
   if(a&&a.month===mon()&&a.sku&&a.sku[cur().id]&&a.sku[cur().id][sku])return {v:Math.round(a.sku[cur().id][sku]*(S.buyVat?1+vatOf(sku):1)),src:"SI"};return null}
+const fT=v=>v==null||!isFinite(v)?"–":fmt(v/1e9,2)+" tỷ";
+function renderPriceKpi(buyT,rv){const el=$("#priceKpi");if(!el)return;const c=calc(),tr=CH.reduce((x,k)=>x+(rv[k]||0),0);
+  const tile=(k,v,s)=>`<div><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  el.innerHTML=tile("Tổng giá nhập",fT(buyT),"Sản lượng SO × giá nhập")+tile("Tổng doanh thu",fT(tr),"Sản lượng × giá bán theo kênh")+tile("Đầu tư thị trường",fT(c.g&&c.g.mk),"Market Invest")+tile("COGS",fT(c.cogs),"Giá vốn theo P&amp;L")}
 function renderPrice(){
   const n=cur(),so=soFor(n.id,mon()),list=soSkus(so);
-  let tot={SDIS:0,OFF:0,ON:0};
+  let tot={SDIS:0,OFF:0,ON:0},rv={SDIS:0,OFF:0,ON:0},buyT=0;
   $("#skuCount").textContent=so?`${list.length} SKU có sản lượng SO trong ${mLbl(mon())}`:"";
   let below=0;
-  const rows=list.map(sku=>{const r=so&&so[sku]||{SDIS:0,OFF:0,ON:0,NA:0},ref=refPrice(n.id,mon(),sku),bp=buyPrice(sku);CH.forEach(c=>tot[c]+=r[c]);
+  const rows=list.map(sku=>{const r=so&&so[sku]||{SDIS:0,OFF:0,ON:0,NA:0},ref=refPrice(n.id,mon(),sku),bp=buyPrice(sku);CH.forEach(c=>{tot[c]+=r[c];const p=typed(sku,c);if(p&&r[c])rv[c]+=r[c]*p});buyT+=(bp?bp.v:0)*CH.reduce((x,c)=>x+(r[c]||0),0);
     const ph=c=>ref&&ref[c]?fmt(ref[c]):"";const lo=c=>bp&&typed(sku,c)&&typed(sku,c)<bp.v;const anyLo=CH.some(lo);if(anyLo)below++;
     return `<tr${anyLo?' class="hotrow"':""}><td class="l"><b>${sku}${ON_FORM.has(sku)?"":' <span class="chip">ngoài form GIS</span>'}</b><small>${esc(SKU_NAME[sku]||"")}</small></td>
       ${CH.map(c=>`<td>${r[c]?fmt(r[c]):'<span class="muted">–</span>'}</td>`).join("")}
@@ -233,7 +244,8 @@ function renderPrice(){
   $("#priceT").innerHTML=`<thead><tr class="grp"><th class="l"></th><th colspan="3">Sản lượng SO (thùng)</th><th>Giá nhập</th><th colspan="3">Giá bán / thùng</th></tr>
     <tr><th class="l">SKU</th>${CH.map(c=>`<th><span class="chip ${c}">${c}</span></th>`).join("")}<th>${S.buyVat?"Gồm VAT":"Chưa VAT"}</th><th>Giá Sdis</th><th>Giá OFF</th><th>Giá ON</th></tr></thead>
     <tbody>${rows||`<tr><td class="l" colspan="8">${so?`${cur().code} không có dòng nào trong file SO ${mLbl(mon())}.`:`Chưa có file SO cho ${mLbl(mon())}. Nạp file SO ở tab Dữ liệu nguồn hoặc chọn tháng có dữ liệu SO.`}</td></tr>`}</tbody>
-    <tfoot><tr><td class="l">Tổng</td>${CH.map(c=>`<td>${fmt(tot[c])}</td>`).join("")}<td colspan="4"></td></tr></tfoot>`;
+    <tfoot><tr><td class="l">Tổng sản lượng</td>${CH.map(c=>`<td>${fmt(tot[c])}</td>`).join("")}<td colspan="4"></td></tr><tr class="revrow"><td class="l">Doanh thu theo kênh (đ)</td><td colspan="4"></td>${CH.map(c=>`<td>${fmt(rv[c])}</td>`).join("")}</tr></tfoot>`;
+  renderPriceKpi(buyT,rv);
   $("#skuCount").innerHTML=so?`${list.length} SKU có sản lượng SO trong ${mLbl(mon())}${below?` · <b style="color:var(--red)">${below} SKU có giá bán thấp hơn giá nhập</b>`:""}`:"";
 }
 $("#priceT").addEventListener("change",e=>{const el=e.target;if(!el.dataset.sku)return;const k=pkey();S.prices[k]=S.prices[k]||{};S.prices[k][el.dataset.sku]=S.prices[k][el.dataset.sku]||{};
@@ -513,13 +525,13 @@ function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vo
   $("#opsOut").innerHTML=`<div class="scroll"><table class="dt ops"><thead><tr><th class="l">Hạng mục</th><th>Số lượng</th><th>Đơn giá / Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>Tổng tiền ${mLbl(m)}</th><th>Tham chiếu M-2</th><th>Chênh lệch</th></tr></thead><tbody>
   ${OPS_UI.map(u=>{const t=opsTotal(u),rv=r?u.ref(r):null,bad=u.req&&!creditOk(),d=t!=null&&rv?t-rv:null,cell={};u.f.forEach(([k])=>cell[OP_SLOT[k]]=k);
     const totIsInput=!!cell.t;
-    return `<tr class="${bad?"badrow":""}"><td class="l"><b>${u.t}</b>${u.req?' <span class="pill bad" style="margin:0">bắt buộc</span>':""}${u.refNote?`<small>${u.refNote}</small>`:""}</td>
+    return `<tr class="${bad?"badrow":""}"><td class="l"><b>${u.t}</b>${u.req?'<span class="req" title="Bắt buộc nhập">*</span>':""}${u.refNote?`<small>${u.refNote}</small>`:""}</td>
       ${["q","p","a","b"].map(c=>`<td>${cell[c]?inp(cell[c]):""}</td>`).join("")}
       <td>${totIsInput?inp(cell.t,bad):`<b>${t!=null?fmt(t):'<span class="muted">chưa đủ</span>'}</b>`}${t!=null&&!u.req&&SV?`<small class="muted">${fmt(t/SV)} đ/thùng</small>`:""}</td>
       <td>${rv!=null?fmt(rv):"–"}${rv&&!u.req&&V?`<small class="muted">${fmt(rv/V)} đ/thùng</small>`:""}</td>
       <td>${d!=null?`<span class="${Math.abs(d)/rv>.1?"d-dn":""}">${d>0?"+":""}${fmt(d/rv*100,1)}%</span>`:"–"}</td></tr>`}).join("")}</tbody></table></div>
-  ${!creditOk()?`<p class="hint errtxt">${o.credit==null||o.credit===""?"Chưa nhập công nợ thị trường. Mục này bắt buộc.":`Công nợ ${fmt(o.credit)} đ chưa đạt mức tối thiểu ${fmt(CREDIT_MIN)} đ. Kiểm tra và nhập lại số chính xác.`}</p>`:""}`;
-  const miss=opsMissing();$("#opsMsg").innerHTML=!creditOk()?`<span class="errtxt">${OPV("credit")==null?"Chưa thể hoàn tất: công nợ thị trường phải được nhập.":`Chưa thể hoàn tất: công nợ thị trường ${fmt(OPV("credit"))} đ chưa đạt mức tối thiểu 100 triệu đồng.`}</span>`:miss.length?`<span class="muted">Còn thiếu: ${miss.join(", ")}.</span>`:`<span class="d-up">Đã nhập đủ. Bấm Hoàn tất để chuyển sang Verify data.</span>`;
+`;
+  const miss=opsMissing();$("#opsMsg").innerHTML=!creditOk()?(OPV("credit")==null?"":`<span class="errtxt">Công nợ thị trường phải lớn hơn 100 triệu đồng.</span>`):miss.length?`<span class="muted">Còn thiếu: ${miss.join(", ")}.</span>`:`<span class="d-up">Đã nhập đủ. Bấm Hoàn tất để chuyển sang Verify data.</span>`;
   $("#opsSubmit").disabled=!creditOk();
 }
 const soTotal=()=>{const so=soFor(cur().id,mon());return so?Object.values(so).reduce((a,r)=>a+r.SDIS+r.OFF+r.ON+r.NA,0):0};
@@ -532,7 +544,7 @@ $("#opsSubmit").addEventListener("click",async()=>{if(!creditOk()){renderOps();$
     flash(`Đã gửi về hệ thống lúc ${tLbl(j.at)} (lần ${j.n}). Admin đã xem được số liệu.`,"ok");
     if(IS_ADMIN)loadSubs();goTab(IS_ADMIN?"verify":"pl")}
   catch(e){flash("Chưa gửi được về hệ thống: "+e.message+" Số liệu vẫn lưu trên máy này, bấm Hoàn tất để gửi lại.","bad");$("#opsMsg").scrollIntoView({block:"center"})}
-  finally{btn.textContent="Hoàn tất & gửi về hệ thống";refreshDerived()}});
+  finally{btn.textContent="Hoàn tất";refreshDerived()}});
 
 // push ops + verify finals into the P&L engine fields (open month only)
 const ENG_KEYS=["petro","bike","trOther","hireWh","driver"];
@@ -616,6 +628,7 @@ function goTab(t){if(!tabOk(t))t="pl";document.querySelectorAll(".tabs button").
   document.querySelectorAll(".tabpane").forEach(p=>p.hidden=p.id!=="tab-"+t);window.scrollTo({top:0})}
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>goTab(b.dataset.tab)));
 $("#selNpp").addEventListener("change",()=>{fillMonths(mon());loadNpp()});
+$("#selZone").addEventListener("change",()=>{fillNpp(+$("#selNpp").value);fillMonths(mon());loadNpp()});
 $("#selMon").addEventListener("change",loadNpp);
 $("#f").addEventListener("submit",e=>{e.preventDefault();render(calc());const o=$("#out");o.classList.remove("flash");void o.offsetWidth;o.classList.add("flash");
   if(window.innerWidth<900)o.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})});
@@ -648,10 +661,10 @@ async function loadSubs(){if(!IS_ADMIN)return;const msg=$("#subMsg");msg.textCon
     msg.textContent=`${SUBS.length} bài nộp · cập nhật lúc ${tLbl(Date.now())}${k?` · vừa nạp ${k} bài mới vào tool`:""}`}
   catch(e){msg.innerHTML=`<span class="errtxt">${esc(e.message)}</span>`}
   renderSubs()}
-function renderSubs(){if(!IS_ADMIN)return;const sel=$("#subMon"),ms=[...new Set(SUBS.map(x=>x.month))].sort().reverse();
+function renderSubs(){if(!IS_ADMIN)return;const sel=$("#subMon"),ms=[...new Set(SUBS.map(x=>x.month).concat([mon()]))].sort().reverse();
   const keep=sel.value||ms[0]||"";sel.innerHTML=ms.length?ms.map(m=>`<option value="${m}">${mLbl(m)}</option>`).join(""):`<option value="">Chưa có</option>`;
-  sel.value=ms.includes(keep)?keep:(ms[0]||"");const m=sel.value,rows=SUBS.filter(x=>x.month===m).sort((a,b)=>b.at-a.at);
-  const sent=new Set(rows.map(x=>x.disId)),pending=NPP.filter(n=>n.months[m]&&n.months[m].open&&!sent.has(n.id));
+  sel.value=ms.includes(keep)?keep:(ms[0]||"");const m=sel.value,z=$("#subZone")?$("#subZone").value:"",rows=SUBS.filter(x=>x.month===m&&(!z||zoneOfDis(x.disId)===z)).sort((a,b)=>b.at-a.at);
+  const sent=new Set(rows.map(x=>x.disId)),pending=NPP.filter(n=>n.months[m]&&n.months[m].open&&!sent.has(n.id)&&(!z||zoneOf(n)===z));
   const c=$("#subCnt");c.textContent=rows.length;c.hidden=!rows.length;
   const f=v=>v===""||v==null?"–":fmt(v);
   const tot=rows.length+pending.length;
@@ -663,11 +676,10 @@ function renderSubs(){if(!IS_ADMIN)return;const sel=$("#subMon"),ms=[...new Set(
     pending.map(n=>`<tr class="miss"><td class="l"><b>${esc(n.code)}</b> <span class="muted">${esc(n.area||"")}</span></td><td colspan="8" class="l muted">Chưa nộp</td></tr>`).join("")}</tbody>`}
 $("#subT").addEventListener("click",e=>{const k=e.target.dataset&&e.target.dataset.sub;if(!k)return;const x=SUBS.find(s=>s.key===k);if(!x)return;
   applySub(x,true);LS.set("ops",S.ops);LS.set("prices",S.prices);
-  const i=NPP.findIndex(n=>n.id===x.disId);if(i<0)return;$("#selNpp").value=i;fillMonths(x.month);loadNpp();refreshAll();goTab("pl")});
-$("#subRefresh").onclick=loadSubs;$("#subMon").onchange=renderSubs;
+  const i=NPP.findIndex(n=>n.id===x.disId);if(i<0)return;setNpp(i);fillMonths(x.month);loadNpp();refreshAll();goTab("pl")});
+$("#subRefresh").onclick=loadSubs;$("#subMon").onchange=renderSubs;$("#subZone").onchange=renderSubs;
 if(IS_ADMIN&&API_URL)loadSubs();else if(IS_ADMIN)$("#subMsg").textContent="Chưa cấu hình API_URL nên chưa nhận được bài nộp.";
 
 // Ẩn tab ngoài phạm vi quyền
-if(!IS_ADMIN&&$("#heroLead"))$("#heroLead").innerHTML="Tháng làm P&amp;L là tháng M-1. Nhập <b>Giá bán</b> → <b>Chi phí vận hành</b> (tham chiếu M-2), xem kết quả ở tab <b>P&amp;L</b>, sau đó xuất Excel gửi Admin.";
 document.querySelectorAll(".tabs button").forEach(b=>{if(!tabOk(b.dataset.tab))b.hidden=true});
 goTab("pl");
