@@ -9,10 +9,11 @@ Công cụ mô phỏng P&L nhà phân phối (tháng M-1, tham chiếu M-2), tri
 
 ## Cài đặt một lần
 
-1. **Settings → Secrets and variables → Actions**, tạo 3 secret:
+1. **Settings → Secrets and variables → Actions**, tạo 4 secret:
    - `ADMIN_PASSWORD`: mật khẩu cấp Admin
    - `NPP_PASSWORD`: mật khẩu cấp NPP (khác Admin)
    - `DATA_KEY`: khoá giải mã dữ liệu nguồn (được cung cấp riêng, không đưa lên repo)
+   - `API_URL`: địa chỉ Web app Google Apps Script nhận bài nộp NPP (xem `server/README.md`)
 2. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 3. Vào tab **Actions → Deploy P&L Tool → Run workflow** (hoặc push lên `main`).
 
@@ -23,7 +24,7 @@ Công cụ mô phỏng P&L nhà phân phối (tháng M-1, tham chiếu M-2), tri
 - Repo public nhưng dữ liệu chỉ lưu dạng mã hoá (`src/data.enc`, AES-256-GCM).
 - Trang deploy mã hoá toàn bộ code + dữ liệu; mật khẩu nào mở được sẽ quyết định quyền (PBKDF2 310k vòng).
 - Phân tab giữa Admin và NPP chỉ là phân quyền giao diện: người có mật khẩu NPP vẫn giải mã được cùng bộ dữ liệu.
-- Số liệu NPP nhập lưu trên trình duyệt của từng người; gửi về Admin qua file Excel.
+- NPP bấm **Hoàn tất & gửi về hệ thống** ở tab Chi phí vận hành: Giá bán + Chi phí vận hành được ghi vào Google Sheet, Admin xem ở tab **Bài nộp NPP** (tự nạp bài mới vào tool).
 
 ## Cập nhật dữ liệu
 

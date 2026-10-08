@@ -103,6 +103,7 @@ select.ch{font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;border:1
     <button role="tab" data-tab="pl" aria-selected="true">P&amp;L</button>
     <button role="tab" data-tab="price" aria-selected="false">Giá bán</button>
     <button role="tab" data-tab="ops" aria-selected="false">Chi phí vận hành</button>
+    <button role="tab" data-tab="sub" aria-selected="false">Bài nộp NPP<span class="cnt" id="subCnt" hidden></span></button>
     <button role="tab" data-tab="verify" aria-selected="false">Verify data<span class="cnt" id="cmpCnt" hidden></span></button>
     <button role="tab" data-tab="gis" aria-selected="false">GIS Input</button>
     <button role="tab" data-tab="chan" aria-selected="false">Channel<span class="cnt" id="chanCnt" hidden></span></button>
@@ -179,6 +180,15 @@ select.ch{font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;border:1
   </section>
 
   <!-- GIS input -->
+  <section class="tabpane" id="tab-sub" hidden>
+    <div class="card">
+      <h2>Bài nộp NPP</h2>
+      <p class="lead">Số liệu Giá bán và Chi phí vận hành NPP gửi khi bấm Hoàn tất. Bài nộp mới hơn được tự động nạp vào tool; bấm <b>Xem</b> để mở P&amp;L của NPP đó.</p>
+      <div class="toolbar"><label class="muted" for="subMon">Tháng</label><select id="subMon"></select><button type="button" id="subRefresh">Làm mới</button><span class="muted" id="subMsg"></span></div>
+      <div class="scroll"><table class="dt" id="subT"></table></div>
+    </div>
+  </section>
+
   <section class="tabpane" id="tab-gis" hidden>
     <div class="card">
       <h2>GIS Input · bảng tham chiếu để nhập hệ thống</h2>
@@ -194,7 +204,7 @@ select.ch{font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;border:1
       <h2>Chi phí vận hành</h2>
       <p class="lead">NPP tự điền số tháng cần làm P&amp;L. Cột tham chiếu là số đã chốt của tháng M-2 trên PnL Detail. Lương tài xế, phụ xế: tổng = số người × (lương căn bản + phụ cấp + thưởng). Công nợ thị trường bắt buộc và phải lớn hơn 100 triệu đồng mới hoàn tất được.</p>
       <div id="opsOut" style="margin-top:12px"></div>
-      <div class="actions" style="margin-top:14px"><button type="button" class="primary" id="opsSubmit">Hoàn tất &amp; chuyển sang Verify data</button></div>
+      <div class="actions" style="margin-top:14px"><button type="button" class="primary" id="opsSubmit">Hoàn tất &amp; gửi về hệ thống</button></div>
       <p class="hint" id="opsMsg"></p>
     </div>
   </section>

@@ -525,9 +525,14 @@ function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vo
 const soTotal=()=>{const so=soFor(cur().id,mon());return so?Object.values(so).reduce((a,r)=>a+r.SDIS+r.OFF+r.ON+r.NA,0):0};
 $("#opsOut").addEventListener("change",e=>{const k=e.target.dataset.op;if(!k)return;const key=okey();S.ops[key]=S.ops[key]||{};const v=e.target.value.trim()===""?null:parse(e.target.value);
   if(v==null)delete S.ops[key][k];else S.ops[key][k]=v;LS.set("ops",S.ops);renderOps();refreshDerived()});
-$("#opsSubmit").addEventListener("click",()=>{if(!creditOk()){renderOps();$("#opsMsg").scrollIntoView({block:"center"});return}
-  const key=okey();S.ops[key]=S.ops[key]||{};S.ops[key].done=true;LS.set("ops",S.ops);
-  if(IS_ADMIN)goTab("verify");else{goTab("pl");const x=$("#xMsg");if(x)x.textContent="Đã hoàn tất chi phí vận hành. Kiểm tra P&L và xuất Excel gửi Admin."}});
+$("#opsSubmit").addEventListener("click",async()=>{if(!creditOk()){renderOps();$("#opsMsg").scrollIntoView({block:"center"});return}
+  const key=okey(),btn=$("#opsSubmit");S.ops[key]=S.ops[key]||{};S.ops[key].done=true;LS.set("ops",S.ops);
+  btn.disabled=true;btn.textContent="Đang gửi…";
+  try{const j=await api("submit",{sub:buildSubmission()});S.ops[key].sentAt=j.at;S.ops[key]._at=j.at;LS.set("ops",S.ops);
+    flash(`Đã gửi về hệ thống lúc ${tLbl(j.at)} (lần ${j.n}). Admin đã xem được số liệu.`,"ok");
+    if(IS_ADMIN)loadSubs();goTab(IS_ADMIN?"verify":"pl")}
+  catch(e){flash("Chưa gửi được về hệ thống: "+e.message+" Số liệu vẫn lưu trên máy này, bấm Hoàn tất để gửi lại.","bad");$("#opsMsg").scrollIntoView({block:"center"})}
+  finally{btn.textContent="Hoàn tất & gửi về hệ thống";refreshDerived()}});
 
 // push ops + verify finals into the P&L engine fields (open month only)
 const ENG_KEYS=["petro","bike","trOther","hireWh","driver"];
@@ -599,6 +604,7 @@ function checklist(){if(!isOpen())return "";const so=soRevenue(),miss=opsMissing
   items.push([miss.length?"warn":"ok",miss.length?`Chi phí vận hành còn thiếu: ${miss.join(", ")}`:"Chi phí vận hành: đã nhập đủ"]);
   items.push([creditOk()?"ok":"bad",creditOk()?`Công nợ thị trường: ${fmt(OPV("credit"))} đ`:(OPV("credit")==null?"Chưa nhập công nợ thị trường (bắt buộc)":"Công nợ thị trường chưa đạt mức tối thiểu 100 triệu")]);
   const fc=["petro","bike","driver"].filter(k=>FIN(k)!=null).length;if(IS_ADMIN)items.push([fc===3?"ok":"warn",`Verify data: đã chốt ${fc}/3 mục chi phí (xăng xe tải, xe máy, nhân sự)`]);
+  const sent=(S.ops[okey()]||{}).sentAt;items.push([sent?"ok":"warn",sent?`Đã gửi về hệ thống lúc ${tLbl(sent)}`:"Chưa gửi về hệ thống: bấm Hoàn tất ở tab Chi phí vận hành"]);
   const usingRef=["depTruck_v","depFork_v","depTools_v","fixed"].filter(id=>isBlank(id)&&$("#"+id).dataset.ref);
   if(usingRef.length)items.push(["warn",`Khấu hao / tài sản còn lại đang lấy số ${mLbl(addM(mon(),-1))}: nhập số tháng này ở mục 2 và 4`]);
   return `<div class="sugg" style="margin:12px 0 0"><h3>Tiến độ hoàn thiện ${mLbl(mon())}</h3>${items.map(i=>`<div class="sitem"><span class="dot ${i[0]}">${i[0]==="ok"?"✓":"!"}</span><span>${i[1]}</span></div>`).join("")}</div>`}
@@ -615,6 +621,51 @@ $("#f").addEventListener("submit",e=>{e.preventDefault();render(calc());const o=
   if(window.innerWidth<900)o.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})});
 $("#reset").onclick=loadNpp;
 fillMonths();loadNpp();
+
+// ---- Đồng bộ bài nộp với hệ thống (Google Apps Script → Google Sheet)
+const tLbl=t=>new Date(t).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
+function flash(msg,kind){const el=$("#opsMsg"),x=$("#xMsg"),h=`<span class="${kind==="bad"?"errtxt":""}">${esc(msg)}</span>`;if(el)el.innerHTML=h;if(x)x.textContent=msg}
+async function api(action,body){
+  if(!API_URL)throw new Error("Hệ thống chưa được cấu hình (thiếu API_URL).");
+  if(!window.__AUTH)throw new Error("Phiên đăng nhập cũ, hãy đăng xuất và đăng nhập lại.");
+  const r=await fetch(API_URL,{method:"POST",body:JSON.stringify({action,auth:window.__AUTH,...body})});
+  if(!r.ok)throw new Error("Máy chủ trả lỗi "+r.status+".");
+  const j=await r.json();if(!j.ok)throw new Error(j.error||"Lỗi máy chủ.");return j}
+function buildSubmission(){const n=cur(),key=okey(),o=S.ops[key]||{},r=calc(),costs={},pr=S.prices[pkey()]||{};
+  OPS_UI.forEach(u=>{if(u.id!=="credit")costs[u.id]=u.f.some(([k])=>o[k]==null||o[k]==="")?null:u.tot(o)});
+  const ops={...o};delete ops.sentAt;delete ops._at;
+  return{key,disId:n.id,code:n.code,area:n.area,month:mon(),
+    summary:{vol:r.V,rev:r.rev,opex:r.opex,pat:r.pat,roi:r.roi,credit:o.credit,costs,skus:Object.keys(pr).length},
+    data:{ops,prices:pr}}}
+// Nạp bài nộp vào state cục bộ (chỉ khi mới hơn bản đang có)
+function applySub(x,force){const loc=S.ops[x.key]||{},seen=Math.max(loc._at||0,loc.sentAt||0);
+  if(!force&&x.at<=seen)return false;
+  S.ops[x.key]={...(x.data.ops||{}),done:true,_at:x.at,sentAt:x.at};S.prices[x.key]=x.data.prices||{};return true}
+let SUBS=[];
+async function loadSubs(){if(!IS_ADMIN)return;const msg=$("#subMsg");msg.textContent="Đang tải…";
+  try{const j=await api("list",{});SUBS=j.items||[];let k=0;SUBS.forEach(x=>{if(applySub(x))k++});
+    if(k){LS.set("ops",S.ops);LS.set("prices",S.prices);refreshAll()}
+    msg.textContent=`${SUBS.length} bài nộp · cập nhật lúc ${tLbl(Date.now())}${k?` · vừa nạp ${k} bài mới vào tool`:""}`}
+  catch(e){msg.innerHTML=`<span class="errtxt">${esc(e.message)}</span>`}
+  renderSubs()}
+function renderSubs(){if(!IS_ADMIN)return;const sel=$("#subMon"),ms=[...new Set(SUBS.map(x=>x.month))].sort().reverse();
+  const keep=sel.value||ms[0]||"";sel.innerHTML=ms.length?ms.map(m=>`<option value="${m}">${mLbl(m)}</option>`).join(""):`<option value="">Chưa có</option>`;
+  sel.value=ms.includes(keep)?keep:(ms[0]||"");const m=sel.value,rows=SUBS.filter(x=>x.month===m).sort((a,b)=>b.at-a.at);
+  const sent=new Set(rows.map(x=>x.disId)),pending=NPP.filter(n=>n.months[m]&&n.months[m].open&&!sent.has(n.id));
+  const c=$("#subCnt");c.textContent=rows.length;c.hidden=!rows.length;
+  const f=v=>v===""||v==null?"–":fmt(v);
+  const tot=rows.length+pending.length;
+  $("#subT").innerHTML=`${tot?`<caption class="l" style="text-align:left;font-weight:700;padding:6px 0 10px">${rows.length}/${tot} NPP đã nộp ${mLbl(m)}</caption>`:""}<thead><tr><th class="l">NPP</th><th>Gửi lúc</th><th>Lần</th><th>Sản lượng</th><th>Chi phí vận hành</th><th>PAT</th><th>ROI</th><th>Công nợ</th><th></th></tr></thead><tbody>${
+    rows.map(x=>`<tr><td class="l"><b>${esc(x.code)}</b> <span class="muted">${esc(x.area||"")}</span>${x.by==="admin"?' <span class="pill warn">Admin sửa</span>':""}</td>
+      <td>${tLbl(x.at)}</td><td>${x.n}</td><td>${f(x.summary.vol)}</td><td>${f(x.summary.opex)}</td><td>${f(x.summary.pat)}</td>
+      <td>${x.summary.roi===""||x.summary.roi==null?"–":fmt(x.summary.roi,2)+"%"}</td><td>${f(x.summary.credit)}</td>
+      <td><button type="button" data-sub="${esc(x.key)}">Xem</button></td></tr>`).join("")}${
+    pending.map(n=>`<tr class="miss"><td class="l"><b>${esc(n.code)}</b> <span class="muted">${esc(n.area||"")}</span></td><td colspan="8" class="l muted">Chưa nộp</td></tr>`).join("")}</tbody>`}
+$("#subT").addEventListener("click",e=>{const k=e.target.dataset&&e.target.dataset.sub;if(!k)return;const x=SUBS.find(s=>s.key===k);if(!x)return;
+  applySub(x,true);LS.set("ops",S.ops);LS.set("prices",S.prices);
+  const i=NPP.findIndex(n=>n.id===x.disId);if(i<0)return;$("#selNpp").value=i;fillMonths(x.month);loadNpp();refreshAll();goTab("pl")});
+$("#subRefresh").onclick=loadSubs;$("#subMon").onchange=renderSubs;
+if(IS_ADMIN&&API_URL)loadSubs();else if(IS_ADMIN)$("#subMsg").textContent="Chưa cấu hình API_URL nên chưa nhận được bài nộp.";
 
 // Ẩn tab ngoài phạm vi quyền
 if(!IS_ADMIN&&$("#heroLead"))$("#heroLead").innerHTML="Tháng làm P&amp;L là tháng M-1. Nhập <b>Giá bán</b> → <b>Chi phí vận hành</b> (tham chiếu M-2), xem kết quả ở tab <b>P&amp;L</b>, sau đó xuất Excel gửi Admin.";

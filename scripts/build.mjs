@@ -33,7 +33,7 @@ const [style, body, app, shell] = await Promise.all(
 // 2. Mã hoá payload (dữ liệu + app) bằng CK
 const ck = crypto.getRandomValues(new Uint8Array(32));
 const iv = crypto.getRandomValues(new Uint8Array(12));
-const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\n" + app)));
+const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
 
 // 3. Bọc CK theo từng quyền
 async function wrap(pw, role) {

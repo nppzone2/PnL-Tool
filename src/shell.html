@@ -46,6 +46,7 @@ const SEALED={{SEALED}};
 const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const tob64=u=>btoa(String.fromCharCode(...u));
 const SK="npppl:session";
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,"0")).join("");
 const ss={get(){try{return JSON.parse(sessionStorage.getItem(SK))}catch(e){return null}},
   set(v){try{sessionStorage.setItem(SK,JSON.stringify(v))}catch(e){}},del(){try{sessionStorage.removeItem(SK)}catch(e){}}};
 
@@ -60,7 +61,7 @@ async function unwrap(pw){
 async function open(sess){
   const ck=await crypto.subtle.importKey("raw",b64(sess.ck),"AES-GCM",false,["decrypt"]);
   const code=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(SEALED.iv)},ck,b64(SEALED.ct)));
-  window.__ROLE=sess.role;
+  window.__ROLE=sess.role;window.__AUTH=sess.auth||"";
   document.getElementById("gate").remove();
   document.getElementById("app").hidden=false;
   const s=document.createElement("script");s.textContent=code;document.body.appendChild(s);
@@ -74,12 +75,13 @@ const f=document.getElementById("gateForm"),btn=document.getElementById("gateBtn
 f.addEventListener("submit",async e=>{e.preventDefault();err.textContent="";btn.disabled=true;btn.textContent="Đang kiểm tra…";
   try{const sess=await unwrap(document.getElementById("gatePw").value);
     if(!sess){err.textContent="Mật khẩu không đúng.";return}
+    sess.auth=await sha(document.getElementById("gatePw").value);
     ss.set(sess);await open(sess)}
   catch(x){err.textContent="Không mở được công cụ: "+(x&&x.message||x)}
   finally{btn.disabled=false;btn.textContent="Đăng nhập"}});
 
 const saved=ss.get();
-if(saved&&saved.ck)open(saved).catch(()=>ss.del());
+if(saved&&saved.ck&&saved.auth)open(saved).catch(()=>ss.del());
 })();
 </script>
 </body>
