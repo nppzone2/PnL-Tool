@@ -27,7 +27,7 @@ jobs:
         env:
           DATA_KEY: ${{ secrets.DATA_KEY }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          NPP_MASTER_KEY: ${{ secrets.NPP_MASTER_KEY }}
+          NPP_PASSWORD: ${{ secrets.NPP_PASSWORD }}
           API_URL: ${{ secrets.API_URL }}
           ADMIN_USER: ${{ vars.ADMIN_USER }}
       - name: Đóng gói thư viện Excel cùng trang (không phụ thuộc CDN)

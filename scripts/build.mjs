@@ -1,9 +1,9 @@
 // Build dist/index.html: giải mã dữ liệu nguồn bằng DATA_KEY, ghép với app,
 // rồi mã hoá lại toàn bộ code + dữ liệu bằng một khoá ngẫu nhiên (CK).
-// CK được "bọc" riêng cho Admin (ADMIN_PASSWORD) và cho từng NPP (mật khẩu lấy từ NPP_MASTER_KEY + DisID).
+// CK được "bọc" riêng cho Admin (ADMIN_PASSWORD) và cho từng NPP (NPP_PASSWORD dùng chung, tên đăng nhập là DisID).
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { webcrypto as crypto } from "node:crypto";
-import { nppPassword, sha256Hex } from "./lib.mjs";
+import { sha256Hex } from "./lib.mjs";
 
 const ITER = 310000;
 const need = (k) => {
@@ -11,10 +11,10 @@ const need = (k) => {
   if (!v) { console.error(`Thiếu biến môi trường / GitHub secret: ${k}`); process.exit(1); }
   return v;
 };
-const DATA_KEY = need("DATA_KEY"), ADMIN = need("ADMIN_PASSWORD"), MASTER = need("NPP_MASTER_KEY");
+const DATA_KEY = need("DATA_KEY"), ADMIN = need("ADMIN_PASSWORD"), NPP = need("NPP_PASSWORD");
 // Tên đăng nhập: admin cho Admin; DisID cho từng NPP. Tên được mã hoá cùng khoá nên không thể bỏ qua.
 const ADMIN_USER = (process.env.ADMIN_USER || "admin").trim().toLowerCase();
-if (ADMIN === MASTER) { console.error("ADMIN_PASSWORD không được trùng NPP_MASTER_KEY."); process.exit(1); }
+if (ADMIN === NPP) { console.error("ADMIN_PASSWORD không được trùng NPP_PASSWORD."); process.exit(1); }
 
 const b64 = (u) => Buffer.from(u).toString("base64");
 const unb64 = (s) => new Uint8Array(Buffer.from(s, "base64"));
@@ -50,7 +50,7 @@ async function wrap(pw, role, user) {
 const npps = [...data.matchAll(/\{"code":"([^"]+)","id":"(\d+)"/g)].map((m) => ({ code: m[1], id: m[2] }));
 if (!npps.length) { console.error("Không đọc được danh sách NPP từ dữ liệu."); process.exit(1); }
 const keys = [await wrap(ADMIN, "admin", ADMIN_USER)];
-for (const n of npps) keys.push(await wrap(nppPassword(MASTER, n.id), "npp", n.id));
+for (const n of npps) keys.push(await wrap(NPP, "npp", n.id));
 console.log(`Đã tạo ${npps.length} tài khoản NPP (tên đăng nhập = DisID).`);
 const sealed = JSON.stringify({ iter: ITER, iv: b64(iv), ct: b64(ct), keys });
 

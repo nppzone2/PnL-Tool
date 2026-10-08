@@ -11,7 +11,7 @@ Công cụ mô phỏng P&L nhà phân phối (tháng M-1, tham chiếu M-2), tri
 
 1. **Settings → Secrets and variables → Actions → Secrets**, tạo:
    - `ADMIN_PASSWORD`: mật khẩu Admin
-   - `NPP_MASTER_KEY`: khoá gốc tạo mật khẩu cho từng NPP (tự chọn chuỗi dài, lưu lại để dùng khi cấp tài khoản)
+   - `NPP_PASSWORD`: mật khẩu dùng chung cho tất cả NPP
    - `DATA_KEY`: khoá giải mã dữ liệu nguồn (được cung cấp riêng, không đưa lên repo)
    - `API_URL`: địa chỉ Web app Google Apps Script nhận bài nộp NPP (xem `server/README.md`)
 2. **Settings → Secrets and variables → Actions → Variables** (tuỳ chọn): `ADMIN_USER` nếu muốn đổi tên Admin (mặc định `admin`).
@@ -21,20 +21,18 @@ Công cụ mô phỏng P&L nhà phân phối (tháng M-1, tham chiếu M-2), tri
 ## Tài khoản NPP
 
 - Tên đăng nhập = **DisID** trong PnL Detail (ví dụ `10260147`).
-- Mật khẩu = 12 ký tự tính từ `NPP_MASTER_KEY` và DisID. Mỗi NPP chỉ đăng nhập được vào đúng NPP của mình.
-- Xem danh sách DisID và mật khẩu để gửi cho từng NPP:
+- Mật khẩu dùng chung cho tất cả NPP: lấy từ secret `NPP_PASSWORD`.
+- Xem danh sách DisID để cấp tài khoản:
 
 ```bash
-DATA_KEY=... NPP_MASTER_KEY=... node scripts/npp-accounts.mjs
+DATA_KEY=... NPP_PASSWORD=... node scripts/npp-accounts.mjs
 ```
-
-Không lưu kết quả lệnh này vào repo. Đổi `NPP_MASTER_KEY` sẽ đổi toàn bộ mật khẩu NPP, nên phải cấp lại cho tất cả NPP và đổi cả Script Property trên Apps Script.
 
 ## Bảo mật
 
 - Repo public nhưng dữ liệu chỉ lưu dạng mã hoá (`src/data.enc`, AES-256-GCM).
 - Trang deploy mã hoá toàn bộ code + dữ liệu; mật khẩu nào mở được sẽ quyết định quyền (PBKDF2 310k vòng).
-- Phân quyền NPP là phân quyền giao diện: dữ liệu của tất cả NPP nằm trong trang đã mã hoá, nên người có kỹ thuật vẫn có thể xem được. Để cách ly thật sự, cần chuyển phần dữ liệu sang máy chủ.
+- Mật khẩu NPP dùng chung nên không ngăn được một NPP đăng nhập vào DisID của NPP khác. Phân quyền NPP hiện chỉ là phân quyền giao diện: dữ liệu của tất cả NPP nằm trong trang đã mã hoá, nên người có kỹ thuật vẫn có thể xem được. Để cách ly thật sự, cần chuyển phần dữ liệu sang máy chủ.
 - NPP bấm **Hoàn tất & gửi về hệ thống** ở tab Chi phí vận hành: Giá bán + Chi phí vận hành được ghi vào Google Sheet, Admin xem ở tab **Bài nộp NPP** (tự nạp bài mới vào tool).
 
 ## Cập nhật dữ liệu
@@ -49,6 +47,6 @@ Không commit file dữ liệu thô.
 ## Build thử trên máy
 
 ```bash
-DATA_KEY=... ADMIN_PASSWORD=... NPP_MASTER_KEY=... node scripts/build.mjs
+DATA_KEY=... ADMIN_PASSWORD=... NPP_PASSWORD=... node scripts/build.mjs
 npx serve dist
 ```
