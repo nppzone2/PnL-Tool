@@ -11,9 +11,9 @@ const need = (k) => {
   return v;
 };
 const DATA_KEY = need("DATA_KEY"), ADMIN = need("ADMIN_PASSWORD"), NPP = need("NPP_PASSWORD");
-// Tên đăng nhập (biến không bí mật, mặc định admin / npp). Tên được mã hoá cùng khoá, không thể bỏ qua.
+// Tên đăng nhập (biến không bí mật, mặc định admin / discode). Tên được mã hoá cùng khoá, không thể bỏ qua.
 const ADMIN_USER = (process.env.ADMIN_USER || "admin").trim().toLowerCase();
-const NPP_USER = (process.env.NPP_USER || "npp").trim().toLowerCase();
+const NPP_USER = (process.env.NPP_USER || "discode").trim().toLowerCase();
 if (ADMIN_USER === NPP_USER) { console.error("ADMIN_USER và NPP_USER phải khác nhau."); process.exit(1); }
 if (ADMIN === NPP) { console.error("ADMIN_PASSWORD và NPP_PASSWORD phải khác nhau."); process.exit(1); }
 
