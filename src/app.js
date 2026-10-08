@@ -80,9 +80,10 @@ function retailBlend(sku,so){const r=so&&so[sku]||{OFF:0,ON:0};let wo=r.OFF,wn=r
 const zoneOf=n=>n.region||"Khác",zoneOfDis=id=>{const n=NPP.find(x=>x.id===id);return n?zoneOf(n):"Khác"};
 const ZONES=[...new Set(NPP.map(zoneOf))].sort();
 [$("#selZone"),$("#subZone")].forEach(el=>{el.innerHTML=`<option value="">Tất cả khu vực</option>`+ZONES.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join("")});
-function fillNpp(keep){const z=$("#selZone").value,list=NPP.map((n,i)=>[n,i]).filter(([n])=>!z||zoneOf(n)===z);
+function fillNpp(keep){const z=$("#selZone").value,list=NPP.map((n,i)=>[n,i]).filter(([n])=>IS_ADMIN?(!z||zoneOf(n)===z):n.id===window.__USER);
   $("#selNpp").innerHTML=list.map(([n,i])=>`<option value="${i}">${n.code} · ${n.area}</option>`).join("");
-  $("#selNpp").value=list.some(([,i])=>i===keep)?keep:(list[0]?list[0][1]:0)}
+  $("#selNpp").value=list.some(([,i])=>i===keep)?keep:(list[0]?list[0][1]:0);
+  if(!IS_ADMIN){$("#selZone").closest("div").hidden=true;$("#selNpp").disabled=true}}
 fillNpp(0);
 function setNpp(i){$("#selZone").value=zoneOf(NPP[i]);fillNpp(i)}
 $("#opT tbody").innerHTML=OPS.map(o=>`<tr><td class="lbl">${o[1]}<small>${o[2]} · ${GRP[o[3]]}</small></td><td>${inp(o[0]+"_q")}</td><td>${inp(o[0]+"_v")}</td><td>${inp(o[0]+"_s")}</td></tr>`).join("");

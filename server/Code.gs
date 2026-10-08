@@ -1,7 +1,8 @@
 /**
  * NPP P&L Simulator · API lưu bài nộp của NPP vào Google Sheet.
  * Cài đặt: xem server/README.md
- * Script Properties cần có: ADMIN_PASSWORD, NPP_PASSWORD (trùng với GitHub secrets).
+ * Script Properties cần có: ADMIN_PASSWORD (trùng GitHub secret) và NPP_MASTER_KEY (trùng GitHub secret NPP_MASTER_KEY).
+ * Mật khẩu NPP được tính từ NPP_MASTER_KEY và DisID, nên NPP chỉ gửi được số của chính mình.
  */
 const SHEET = 'Submissions';
 const LOG = 'Log';
@@ -16,7 +17,7 @@ function doGet() { return out_({ ok: true, service: 'npp-pnl', time: new Date().
 function doPost(e) {
   try {
     const req = JSON.parse(e.postData.contents || '{}');
-    const role = role_(req.auth);
+    const role = role_(req.auth, req.disId || (req.sub && req.sub.disId));
     if (!role) return out_({ ok: false, error: 'Sai thông tin đăng nhập. Hãy đăng xuất và đăng nhập lại.' });
     switch (req.action) {
       case 'ping': return out_({ ok: true, role });
@@ -71,13 +72,22 @@ function list_(month) {
     });
 }
 
-function role_(auth) {
+function role_(auth, disId) {
   if (!auth) return null;
   const p = PropertiesService.getScriptProperties();
-  const a = p.getProperty('ADMIN_PASSWORD'), n = p.getProperty('NPP_PASSWORD');
+  const a = p.getProperty('ADMIN_PASSWORD'), m = p.getProperty('NPP_MASTER_KEY');
   if (a && auth === sha_(a)) return 'admin';
-  if (n && auth === sha_(n)) return 'npp';
+  if (m && disId && auth === sha_(nppPw_(m, String(disId)))) return 'npp';
   return null;
+}
+
+// Phải giống hệt nppPassword() trong scripts/lib.mjs
+const ALPHA_ = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function nppPw_(master, id) {
+  const b = Utilities.computeHmacSha256Signature('npp|' + id, master);
+  let s = '';
+  for (let i = 0; i < 12; i++) s += ALPHA_[(b[i] & 255) % 32];
+  return s;
 }
 
 function sha_(s) {

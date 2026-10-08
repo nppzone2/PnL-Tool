@@ -8,7 +8,7 @@ Khi NPP bấm **Hoàn tất & gửi về hệ thống**, Giá bán + Chi phí v�
 2. **Extensions → Apps Script**, xoá code mẫu, dán toàn bộ nội dung `server/Code.gs`, bấm **Save**.
 3. **Project Settings (biểu tượng bánh răng) → Script Properties → Add**:
    - `ADMIN_PASSWORD` = đúng mật khẩu Admin trong GitHub secret
-   - `NPP_PASSWORD` = đúng mật khẩu NPP trong GitHub secret
+   - `NPP_MASTER_KEY` = đúng khoá gốc `NPP_MASTER_KEY` trong GitHub secret
 4. **Deploy → New deployment → Select type: Web app**
    - Execute as: **Me**
    - Who has access: **Anyone**
@@ -23,5 +23,6 @@ Khi NPP bấm **Hoàn tất & gửi về hệ thống**, Giá bán + Chi phí v�
 
 ## Lưu ý
 
-- Đổi mật khẩu: cập nhật cả GitHub secret lẫn Script Properties.
+- Đổi mật khẩu Admin: cập nhật cả GitHub secret `ADMIN_PASSWORD` lẫn Script Property.
+- Đổi `NPP_MASTER_KEY`: cập nhật cả hai nơi, rồi cấp lại mật khẩu cho tất cả NPP.
 - Sửa `Code.gs`: **Deploy → Manage deployments → Edit → Version: New version** để giữ nguyên URL.

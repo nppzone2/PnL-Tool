@@ -1,8 +1,9 @@
 // Build dist/index.html: giải mã dữ liệu nguồn bằng DATA_KEY, ghép với app,
 // rồi mã hoá lại toàn bộ code + dữ liệu bằng một khoá ngẫu nhiên (CK).
-// CK được "bọc" riêng bằng ADMIN_PASSWORD và NPP_PASSWORD -> mật khẩu nào mở được sẽ quyết định quyền.
+// CK được "bọc" riêng cho Admin (ADMIN_PASSWORD) và cho từng NPP (mật khẩu lấy từ NPP_MASTER_KEY + DisID).
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { webcrypto as crypto } from "node:crypto";
+import { nppPassword, sha256Hex } from "./lib.mjs";
 
 const ITER = 310000;
 const need = (k) => {
@@ -10,12 +11,10 @@ const need = (k) => {
   if (!v) { console.error(`Thiếu biến môi trường / GitHub secret: ${k}`); process.exit(1); }
   return v;
 };
-const DATA_KEY = need("DATA_KEY"), ADMIN = need("ADMIN_PASSWORD"), NPP = need("NPP_PASSWORD");
-// Tên đăng nhập (biến không bí mật, mặc định admin / discode). Tên được mã hoá cùng khoá, không thể bỏ qua.
+const DATA_KEY = need("DATA_KEY"), ADMIN = need("ADMIN_PASSWORD"), MASTER = need("NPP_MASTER_KEY");
+// Tên đăng nhập: admin cho Admin; DisID cho từng NPP. Tên được mã hoá cùng khoá nên không thể bỏ qua.
 const ADMIN_USER = (process.env.ADMIN_USER || "admin").trim().toLowerCase();
-const NPP_USER = (process.env.NPP_USER || "discode").trim().toLowerCase();
-if (ADMIN_USER === NPP_USER) { console.error("ADMIN_USER và NPP_USER phải khác nhau."); process.exit(1); }
-if (ADMIN === NPP) { console.error("ADMIN_PASSWORD và NPP_PASSWORD phải khác nhau."); process.exit(1); }
+if (ADMIN === MASTER) { console.error("ADMIN_PASSWORD không được trùng NPP_MASTER_KEY."); process.exit(1); }
 
 const b64 = (u) => Buffer.from(u).toString("base64");
 const unb64 = (s) => new Uint8Array(Buffer.from(s, "base64"));
@@ -46,9 +45,13 @@ async function wrap(pw, role, user) {
   const kek = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" }, base,
     { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
   const w = await crypto.subtle.encrypt({ name: "AES-GCM", iv: wiv }, kek, enc.encode(JSON.stringify({ role, user, ck: b64(ck) })));
-  return { salt: b64(salt), iv: b64(wiv), ct: b64(new Uint8Array(w)) };
+  return { h: sha256Hex(user), salt: b64(salt), iv: b64(wiv), ct: b64(new Uint8Array(w)) };
 }
-const keys = [await wrap(ADMIN, "admin", ADMIN_USER), await wrap(NPP, "npp", NPP_USER)];
+const npps = [...data.matchAll(/\{"code":"([^"]+)","id":"(\d+)"/g)].map((m) => ({ code: m[1], id: m[2] }));
+if (!npps.length) { console.error("Không đọc được danh sách NPP từ dữ liệu."); process.exit(1); }
+const keys = [await wrap(ADMIN, "admin", ADMIN_USER)];
+for (const n of npps) keys.push(await wrap(nppPassword(MASTER, n.id), "npp", n.id));
+console.log(`Đã tạo ${npps.length} tài khoản NPP (tên đăng nhập = DisID).`);
 const sealed = JSON.stringify({ iter: ITER, iv: b64(iv), ct: b64(ct), keys });
 
 const html = shell.replace("{{STYLE}}", () => style).replace("{{BODY}}", () => body).replace("{{SEALED}}", () => sealed);
