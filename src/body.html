@@ -1,0 +1,281 @@
+<style>
+.picker{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:10px;margin-top:16px;position:relative;z-index:1}
+@media (max-width:560px){.picker{grid-template-columns:1fr}}
+.picker label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.8;margin-bottom:4px;font-weight:600}
+.picker select{width:100%;font:inherit;font-weight:700;font-size:15px;padding:10px 12px;border-radius:10px;border:0;background:#fff;color:#0b4f2a}
+.meta{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:12.5px;opacity:.9;position:relative;z-index:1}
+.meta b{font-weight:700}
+.tabs{display:flex;gap:4px;overflow-x:auto;margin-top:16px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none;border:0;background:transparent;padding:9px 14px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--muted)}
+.tabs button[aria-selected=true]{background:var(--green);color:#fff}
+.tabs button .cnt{display:inline-block;margin-left:6px;font-size:11px;background:var(--red);color:#fff;border-radius:99px;padding:0 6px}
+.tabpane{margin-top:16px}
+.opf{display:flex;flex-wrap:wrap;gap:8px}.opf label{display:grid;gap:2px;font-size:11px;color:var(--muted)}.opf input.v{width:130px;min-width:0}
+table.dt.ops td{vertical-align:middle}table.dt.ops input.v{min-width:110px;width:100%}table.dt.ops td small{display:block}table.dt.ops td.l small{max-width:280px;white-space:normal}table.dt tr.badrow td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.errtxt{color:var(--red);font-weight:700}
+.vfinal{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--green-soft)}.vfinal>span:first-child{font-weight:700}.vfinal input.v{width:150px;min-width:0;background:var(--surface)}
+button.primary:disabled{opacity:.5;cursor:not-allowed}
+.xbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;position:relative;z-index:1;font-size:12.5px}
+.xbar .xbtn{background:#fff;color:#0b4f2a;border:0;padding:9px 16px}.xbar #xNote{opacity:.8}
+.autobox{background:var(--surface-2);border-radius:10px;padding:10px 12px;margin:10px 0 6px;display:grid;gap:8px}
+.arow{display:grid;gap:4px}.arow .f{font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.arow .f input.v{width:72px;min-width:0;padding:4px 6px;background:var(--surface)}
+.sw{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}.sw input{width:16px;height:16px;accent-color:var(--green)}
+input.v[readonly]{background:var(--green-soft);color:var(--green);font-weight:700}
+table.dt tr.sech th{background:#5f6b66;color:#fff;text-align:right;padding:9px 8px}table.dt tr.sech th.l{text-align:left;text-transform:none;letter-spacing:0;font-size:13px}
+table.dt tr.subh td{color:var(--amber);font-weight:600;background:var(--surface-2)}
+table.dt tr.miss td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+table.dt td.hot,span.hot{background:var(--red-soft);color:var(--red);font-weight:800}
+table.dt tr.hotrow td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+input.v.lowp{background:var(--red-soft);color:var(--red);font-weight:800;border-color:var(--red)}
+input.v.buy{background:var(--surface);border-color:var(--line)}
+table.dt td.cool,span.cool{background:var(--orange-soft);color:var(--orange);font-weight:800}
+table.dt tr.coolrow td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
+.pill.dn{background:var(--orange-soft);color:var(--orange)}
+.cnt[hidden],.tabpane[hidden],#soBox[hidden],#totBox[hidden]{display:none!important}
+.mode{display:flex;gap:6px;margin:12px 0 4px;background:var(--surface-2);padding:4px;border-radius:10px;width:max-content;max-width:100%;flex-wrap:wrap}
+.mode label{padding:7px 12px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);position:relative}
+.mode input{position:absolute;opacity:0;pointer-events:none}
+.mode label:has(input:checked){background:var(--surface);color:var(--green);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.mode label:has(input:disabled){opacity:.45;cursor:not-allowed}
+.src{font-size:11px;font-weight:600;color:var(--muted);background:var(--surface-2);border-radius:5px;padding:1px 6px;margin-left:4px;white-space:nowrap}
+.sugg{margin-top:18px;border:1px solid var(--line);border-radius:11px;padding:13px 14px}
+.sugg h3{margin:0 0 8px}
+.sitem{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+.sitem:first-of-type{border-top:0}
+.sitem .dot{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff}
+.dot.ok{background:var(--green)}.dot.warn{background:var(--amber)}.dot.bad{background:var(--red)}
+.check{margin-top:10px;font-size:12px;padding:8px 10px;border-radius:8px;background:var(--surface-2);color:var(--muted)}
+.trend{display:flex;align-items:flex-end;gap:4px;height:46px;margin-top:6px}
+.trend span{flex:1;background:var(--line);border-radius:3px 3px 0 0;min-height:2px}
+.trend span.on{background:var(--green)}.trend span.open{background:repeating-linear-gradient(45deg,var(--line) 0 3px,transparent 3px 6px)}
+.trendlbl{display:flex;gap:4px;font-size:10.5px;color:var(--muted);margin-top:3px}.trendlbl i{flex:1;text-align:center;font-style:normal}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card+.card{margin-top:14px}
+.card h2{margin:0;font-size:17px}
+.lead{color:var(--muted);margin:4px 0 0;max-width:72ch}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.toolbar button{padding:8px 12px;font-size:13px}
+.toolbar .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
+table.dt th.l,table.dt td.l{text-align:left}
+table.dt td{padding:6px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.dt td.l b{display:block}table.dt td.l small{color:var(--muted)}
+table.dt tr.grp th{background:var(--surface-2);text-align:center}
+table.dt tfoot td{font-weight:800;border-top:2px solid var(--line)}
+table.dt input.v{min-width:96px}
+.muted{color:var(--muted)}
+.d-up{color:var(--green)}.d-dn{color:var(--red)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.stat{background:var(--surface-2);border-radius:10px;padding:10px 12px}
+.stat .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.stat .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:16px;display:grid;gap:8px}
+.drop input[type=file]{font:inherit;font-size:13px;max-width:100%}
+.status{font-size:12.5px;padding:7px 10px;border-radius:8px;background:var(--surface-2)}
+.status.ok{background:var(--green-soft);color:var(--green)}.status.bad{background:var(--red-soft);color:var(--red)}
+.three{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}@media (max-width:1000px){.three{grid-template-columns:1fr}}.three .card+.card{margin-top:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media (max-width:760px){.two{grid-template-columns:1fr}}
+.rules{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13px}.rules li{margin:3px 0}
+select.ch{font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--surface-2);color:var(--muted)}
+.chip.SDIS{background:#e8e3f7;color:#4b3a8f}.chip.OFF{background:var(--green-soft);color:var(--green)}.chip.ON{background:var(--amber-soft);color:var(--amber)}
+:root[data-theme=dark] .chip.SDIS{background:#2a2442;color:#b9a9f2}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .chip.SDIS{background:#2a2442;color:#b9a9f2}}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">HCM Zone 2 &amp; 3 · Mô phỏng P&amp;L NPP</div>
+    <h1>NPP P&amp;L Simulator</h1>
+    <p id="heroLead">Tháng làm P&amp;L là tháng M-1. Quy trình: nhập <b>Giá bán</b> → <b>Chi phí vận hành</b> (tham chiếu M-2) → <b>Verify data</b> chốt số final → <b>GIS Input</b> để nhập hệ thống. Tab P&amp;L tổng hợp kết quả và tiến độ hoàn thiện.</p>
+    <div class="picker">
+      <div><label for="selNpp">Nhà phân phối</label><select id="selNpp"></select></div>
+      <div><label for="selMon">Tháng P&amp;L</label><select id="selMon"></select></div>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div class="xbar"><button type="button" class="xbtn" hidden>⤓ Xuất Excel</button><span id="xMsg"></span><span id="xNote" hidden></span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Các tab">
+    <button role="tab" data-tab="pl" aria-selected="true">P&amp;L</button>
+    <button role="tab" data-tab="price" aria-selected="false">Giá bán</button>
+    <button role="tab" data-tab="ops" aria-selected="false">Chi phí vận hành</button>
+    <button role="tab" data-tab="verify" aria-selected="false">Verify data<span class="cnt" id="cmpCnt" hidden></span></button>
+    <button role="tab" data-tab="gis" aria-selected="false">GIS Input</button>
+    <button role="tab" data-tab="chan" aria-selected="false">Channel<span class="cnt" id="chanCnt" hidden></span></button>
+    <button role="tab" data-tab="src" aria-selected="false">Dữ liệu nguồn</button>
+  </nav>
+
+  <!-- P&L -->
+  <section class="tabpane" id="tab-pl">
+  <div class="grid" style="margin-top:0">
+    <form id="f" autocomplete="off">
+      <details class="sec" open>
+        <summary><span class="t"><span class="idx">1</span>Sản lượng &amp; doanh thu</span><span class="tag" id="volTag">SO × Giá bán</span></summary>
+        <div class="body">
+          <div class="mode" role="radiogroup" aria-label="Nguồn sản lượng">
+            <label><input type="radio" name="mode" id="modeSo" value="so"><span>Theo SO &amp; Giá bán</span></label>
+            <label><input type="radio" name="mode" id="modeTot" value="tot"><span>Theo PnL Detail</span></label>
+          </div>
+          <div id="soBox"><div id="soSummary"></div></div>
+          <div id="totBox">
+            <div class="row2"><label for="totVol">Tổng sản lượng (thùng)<small>1. Total_Volume <span class="src">PnL Detail</span></small></label><input class="v" id="totVol" inputmode="decimal"></div>
+            <div class="row2"><label for="totSell">Giá bán sales out bình quân<small>Sales revenue ÷ Volume <span class="src">PnL Detail</span></small></label><input class="v" id="totSell" inputmode="decimal"></div>
+          </div>
+          <div class="row2"><label for="totBuy">Giá mua HVN bình quân / thùng<small>COGS ÷ Volume <span class="src">PnL Detail</span></small></label><input class="v" id="totBuy" inputmode="decimal"></div>
+          <div class="row2"><label for="discWs">Discount for WholeSales / thùng<small>Chiết khấu bán hàng toàn bộ outlet</small></label><input class="v" id="discWs" inputmode="decimal"></div>
+        </div>
+      </details>
+
+      <details class="sec" open>
+        <summary><span class="t"><span class="idx">2</span>Operation cost</span><span class="tag">Qty × VND × % share</span></summary>
+        <div class="body"><div class="scroll"><table class="in" id="opT">
+          <thead><tr><th>Hạng mục</th><th>Qty</th><th>VND</th><th>% share</th></tr></thead><tbody></tbody>
+        </table></div>
+        <div class="scroll"><table class="in" id="mkT">
+          <thead><tr><th>Market investment &amp; Capital cost</th><th>VND</th><th>%</th></tr></thead><tbody></tbody>
+        </table></div>
+        <p class="hint" id="costHint"></p>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary><span class="t"><span class="idx">3</span>Other incomes – Thu nhập từ HVN</span><span class="tag">VND</span></summary>
+        <div class="body" id="oiB"></div>
+      </details>
+
+      <details class="sec" open>
+        <summary><span class="t"><span class="idx">4</span>Investment Capital – Vốn đầu tư</span><span class="tag">VND</span></summary>
+        <div class="body" id="icB"></div>
+      </details>
+
+      <div class="actions">
+        <button type="submit" class="primary">Tính toán</button>
+        <button type="button" id="reset">Nạp lại số gốc</button>
+        <button type="button" class="xbtn" hidden>Xuất Excel</button>
+      </div>
+    </form>
+    <aside class="res"><div class="panel" id="out"></div></aside>
+  </div>
+  </section>
+
+  <!-- Giá bán -->
+  <section class="tabpane" id="tab-price" hidden>
+    <div class="card">
+      <h2>Giá bán</h2>
+      <p class="lead">Nhập giá đã collect / thùng cho 3 kênh Sdis, OFF, ON của tháng cần tính. Giá này tự đổ sang tab GIS Input và tab So sánh giá. Ô trống hiện giá tham chiếu tháng trước để đối chiếu nhanh. Cột Giá nhập lấy từ file SI by Amount (Sales_Unit_Price, cộng VAT 10% cho bia, 8% cho H025 không cồn), sửa được; giá bán nào thấp hơn giá nhập sẽ tô đỏ. Sản lượng theo kênh lấy từ file SO qua bảng Channel.</p>
+      <div class="toolbar">
+        <button type="button" id="fillRef">Điền giá tham chiếu vào ô trống</button>
+        <button type="button" id="clearPrice">Xoá giá đã nhập</button>
+        <label class="sw"><input type="checkbox" id="buyVat"><span>Giá nhập gồm VAT (bia 10%, H025 không cồn 8%)</span></label>
+        <span class="muted" id="skuCount"></span>
+      </div>
+      <div class="scroll"><table class="dt" id="priceT"></table></div>
+      <p class="hint">Giá đã nhập được lưu trên trình duyệt này theo từng NPP và tháng.</p>
+    </div>
+  </section>
+
+  <!-- GIS input -->
+  <section class="tabpane" id="tab-gis" hidden>
+    <div class="card">
+      <h2>GIS Input · bảng tham chiếu để nhập hệ thống</h2>
+      <p class="lead">Bố cục giống form GIS, lấy theo số đã chốt ở tab Verify data. Mục 1: Wholesale và Retail theo cột Giá bán ở tab Verify data. Mục 2 đến 5 theo tab Chi phí vận hành, số Final ở Verify và các mục còn lại của tab P&amp;L. Cột % share ở mục 3 nhập trực tiếp tại đây, P&amp;L tự tính lại theo % share.</p>
+      <div class="toolbar"><button type="button" id="copyGis">Copy toàn bộ (dán vào Excel)</button><span class="muted" id="copyMsg"></span><span class="muted" id="gisMiss"></span></div>
+      <div class="scroll"><table class="dt" id="gisT"></table></div>
+    </div>
+  </section>
+
+  <!-- Chi phí vận hành -->
+  <section class="tabpane" id="tab-ops" hidden>
+    <div class="card">
+      <h2>Chi phí vận hành</h2>
+      <p class="lead">NPP tự điền số tháng cần làm P&amp;L. Cột tham chiếu là số đã chốt của tháng M-2 trên PnL Detail. Lương tài xế, phụ xế: tổng = số người × (lương căn bản + phụ cấp + thưởng). Công nợ thị trường bắt buộc và phải lớn hơn 100 triệu đồng mới hoàn tất được.</p>
+      <div id="opsOut" style="margin-top:12px"></div>
+      <div class="actions" style="margin-top:14px"><button type="button" class="primary" id="opsSubmit">Hoàn tất &amp; chuyển sang Verify data</button></div>
+      <p class="hint" id="opsMsg"></p>
+    </div>
+  </section>
+
+  <!-- Verify -->
+  <section class="tabpane" id="tab-verify" hidden>
+    <div class="card">
+      <h2>1 · Giá bán</h2>
+      <p class="lead" id="cmpLead"></p>
+      <div class="stats" id="cmpStats"></div>
+      <div class="scroll" style="margin-top:12px"><table class="dt" id="cmpT"></table></div>
+      <p class="hint">Lợi nhuận / thùng = giá bán − giá nhập. Ô đỏ: giá bán thấp hơn giá nhập.</p>
+    </div>
+    <div class="card">
+      <h2>2 · Chi phí xăng dầu</h2>
+      <p class="lead">Hai tháng gần nhất có dữ liệu TMS. Nhập giá dầu bình quân từng tháng để quy số lít ra chi phí, so với số PnL Detail (tháng đã chốt) và số NPP nhập (tháng làm P&amp;L).</p>
+      <div id="vFuel" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>3 · Chi phí nhân sự giao hàng</h2>
+      <p class="lead">So sánh số NPP nhập tháng làm P&amp;L với chi phí Delivery &amp; Driver đã chốt của tháng liền trước.</p>
+      <div id="vStaff" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- Channel -->
+  <section class="tabpane" id="tab-chan" hidden>
+    <div class="card">
+      <h2>Channel theo Outlet type</h2>
+      <p class="lead">Bảng này quyết định outlet nào tính vào kênh SDIS, OFF hay ON trong tab Giá bán. Đổi kênh ở cột Channel, tool tính lại ngay.</p>
+      <div class="toolbar">
+        <input class="v" id="newType" placeholder="Outlet type mới" style="max-width:220px;text-align:left">
+        <select class="ch" id="newCh"><option>OFF</option><option>ON</option><option>SDIS</option></select>
+        <button type="button" id="addType">Thêm</button>
+        <button type="button" id="resetChan">Khôi phục mặc định</button>
+      </div>
+      <div class="scroll"><table class="dt" id="chanT"></table></div>
+    </div>
+  </section>
+
+  <!-- Sources -->
+  <section class="tabpane" id="tab-src" hidden>
+    <div class="three">
+      <div class="card">
+        <h2>File SO theo ngày giao</h2>
+        <p class="lead">Export "SO by Delivered Date" của tháng cần làm P&amp;L. Tool tự cộng Quantity (case) theo Seller_ID × ShortCode × Outlet_Segment.</p>
+        <div class="drop" style="margin-top:12px"><input type="file" id="fileSo" accept=".xlsx,.xls,.csv"><div class="status" id="soStatus"></div></div>
+        <div class="toolbar"><button type="button" id="soReset">Dùng lại file SO mặc định</button></div>
+      </div>
+      <div class="card">
+        <h2>File PnL GIS Input</h2>
+        <p class="lead">Export đầy đủ, có các dòng giá bán: cột Name là sản phẩm, Val01 là giá Wholesale, Val02 là giá Retail.</p>
+        <div class="drop" style="margin-top:12px"><input type="file" id="fileGis" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="gisStatus"></div></div>
+        <div class="toolbar"><button type="button" id="gisReset">Xoá giá GIS đã nạp</button></div>
+      </div>
+      <div class="card">
+        <h2>File TMS Order Detail</h2>
+        <p class="lead">Dùng tính Petro fee xe tải: số chuyến (PlanNumber), số thùng (Assigned_Quantity), km kế hoạch và loại xe. Chuyến có username chứa DSA không tính xăng dầu. File có thể chứa nhiều tháng.</p>
+        <div class="drop" style="margin-top:12px"><input type="file" id="fileTms" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="tmsStatus"></div></div>
+        <div class="toolbar"><button type="button" id="tmsReset">Xoá file TMS đã nạp thêm</button></div>
+      </div>
+      <div class="card">
+        <h2>File SI by Amount</h2>
+        <p class="lead">Dùng tính Current account. Tool cộng cột Sales_Amount theo Distributor_ID của tháng cần tính (theo Date_ID).</p>
+        <div class="drop" style="margin-top:12px"><input type="file" id="fileAmt" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="amtStatus"></div></div>
+        <div class="toolbar"><button type="button" id="amtReset">Dùng lại file SI mặc định</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Quy tắc tính</h2>
+      <ul class="rules">
+        <li>Tháng P&amp;L của một lần nhập GIS = tháng của InputDate trừ 1 (ví dụ nhập 16/09 là số của tháng 8). Đã đối chiếu khớp với PnL Detail.</li>
+        <li>Giá tham chiếu của tháng M lấy lần nhập cuối cùng của tháng M-1. Nếu không có thì lùi về M-2, tối đa M-3.</li>
+        <li>Doanh thu = Σ SKU (SL SDIS × giá Sdis + SL OFF × giá OFF + SL ON × giá ON). SKU chưa có giá và chưa có tham chiếu dùng giá bán bình quân của NPP ở tháng gần nhất đã chốt.</li>
+        <li>COGS = sản lượng SO × giá mua bình quân / thùng của tháng trong PnL Detail. Chi phí vận hành và vốn của tháng chưa chốt lấy theo tháng liền trước.</li>
+        <li>CD, DIP, Inventory lấy theo tháng đang tính nếu PnL Detail đã có.</li>
+        <li>Delivery &amp; Driver tháng chưa chốt = FTE tài xế × lương cứng + thưởng/thùng bình quân T6–T8 × sản lượng TMS. FTE = ngày công tài xế ÷ 26.</li>
+        <li>Petro fee xe tải = số lít × giá DO bình quân tháng × % share. Số lít = km kế hoạch TMS × hệ số quãng đường × định mức lít/100 km theo loại xe, đã loại chuyến DSA. Xe máy: số lít gợi ý từ phí bình quân 3 tháng trước, có thể sửa.</li>
+        <li>Current account = Giá trị mua hàng trong file SI by Amount ÷ 26 ngày làm việc × 1,5 ngày dự phòng (số tiền dự phòng để mua hàng tương đương 1,5 ngày). Sales_Amount trong file SI là giá chưa VAT, có thể bật cộng VAT 10%.</li>
+        <li>Credit for Outlets = Sản lượng × giá bán BQ ÷ số ngày trong tháng × số ngày công nợ. Số ngày công nợ mặc định là bình quân 3 tháng gần nhất của từng NPP.</li>
+      </ul>
+    </div>
+  </section>
+</div>
