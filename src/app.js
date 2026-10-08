@@ -627,6 +627,14 @@ function refreshDerived(){renderOps();applyOps();applyShares();renderVerify();re
 function refreshAll(){renderPrice();renderChan();renderSrc();refreshDerived()}
 function goTab(t){if(!tabOk(t))t="pl";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
   document.querySelectorAll(".tabpane").forEach(p=>p.hidden=p.id!=="tab-"+t);window.scrollTo({top:0})}
+// Giữ con trỏ khi bảng được vẽ lại sau khi đổi giá trị: nhấn Tab sang ô kế tiếp thì không bị đưa về đầu trang
+const paneInputs=pane=>[...pane.querySelectorAll("input")].filter(x=>!x.disabled&&!x.readOnly&&x.type!=="hidden"&&x.type!=="file"&&x.offsetParent!==null);
+let _tabNext=null;
+document.addEventListener("change",e=>{const el=e.target;if(!el||el.tagName!=="INPUT")return;const pane=el.closest(".tabpane");if(!pane)return;
+  _tabNext={pane,i:paneInputs(pane).indexOf(el)};setTimeout(restoreTabFocus,0)},true);
+function restoreTabFocus(){const s=_tabNext;_tabNext=null;if(!s||s.i<0)return;
+  const a=document.activeElement;if(a&&a!==document.body&&a.isConnected)return;
+  const next=paneInputs(s.pane)[s.i+1];if(next)next.focus();}
 // Chuyển tab bằng chuột: con trỏ nhảy vào ô trống đầu tiên của tab đó
 function focusNext(t){const pane=document.getElementById("tab-"+t);if(!pane)return;
   const els=[...pane.querySelectorAll("input.v,input[type=text],input[type=number]")].filter(e=>!e.disabled&&!e.readOnly&&e.offsetParent!==null);
