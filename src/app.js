@@ -640,7 +640,11 @@ function restoreTabFocus(){const s=_tabNext;_tabNext=null;if(!s||s.i<0)return;
 // Nhấn Tab ở phần tử cuối của tab thì sang tab kế tiếp (ô trống đầu tiên); hết tab thì quay vòng về tab đầu, không rơi về đầu trang
 const paneFocusables=pane=>[...pane.querySelectorAll("input,select,textarea,button")].filter(tabStop);
 const tabHasInputs=t=>{const p2=document.getElementById("tab-"+t);return !!(p2&&p2.querySelector("input:not([readonly]):not([disabled]):not([type=hidden]):not([type=file])"))};
-document.addEventListener("keydown",e=>{if(e.key!=="Tab"||e.shiftKey)return;const el=e.target;if(!el||!el.closest)return;
+// Enter trong ô nhập hoạt động như Tab: chuyển sang ô kế tiếp
+document.addEventListener("keydown",e=>{const el=e.target;if(!el||!el.closest)return;
+  const isTab=e.key==="Tab"&&!e.shiftKey;
+  const isEnter=e.key==="Enter"&&el.tagName==="INPUT"&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.shiftKey;
+  if(!isTab&&!isEnter)return;
   const pane=el.closest(".tabpane");if(!pane)return;const f=paneFocusables(pane),idx=f.indexOf(el);if(idx<0)return;
   // Ô giữa tab: tự chuyển focus sau khi bảng vẽ lại (ô kế tiếp có thể bị thay thế khi đổi giá trị)
   if(idx<f.length-1){e.preventDefault();el.blur();setTimeout(()=>{const g=paneFocusables(pane);const t=g[idx+1]||g[g.length-1];if(t)t.focus()},0);return}
