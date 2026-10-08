@@ -48,7 +48,7 @@ const parse=s=>{s=String(s??"").replace(/\s/g,"").replace(/\./g,"").replace(",",
 const isBlank=id=>{const el=$("#"+id);return !el||el.value.trim()===""};
 const set=(id,n)=>{const el=$("#"+id);if(el)el.value=(n===""||n==null||!isFinite(n))?"":fmt(n,Math.abs(n%1)>1e-9?2:0)};
 const val=id=>{const el=$("#"+id);if(!el)return 0;if(el.value.trim()===""&&el.dataset.ref)return parse(el.dataset.ref);return parse(el.value)};
-document.addEventListener("focusout",e=>{const el=e.target;if(el.matches&&el.matches("input.v[inputmode]")&&el.value.trim()!=="")set(el.id,parse(el.value))});
+document.addEventListener("focusout",e=>{const el=e.target;if(el.id&&el.matches&&el.matches("input.v[inputmode]")&&el.value.trim()!=="")set(el.id,parse(el.value))});
 document.addEventListener("focusin",e=>{if(e.target.matches&&e.target.matches("input.v"))e.target.select()});
 
 // SO volume by sku × channel for current NPP & month
@@ -628,23 +628,30 @@ function refreshAll(){renderPrice();renderChan();renderSrc();refreshDerived()}
 function goTab(t){if(!tabOk(t))t="pl";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
   document.querySelectorAll(".tabpane").forEach(p=>p.hidden=p.id!=="tab-"+t);window.scrollTo({top:0})}
 // Giữ con trỏ khi bảng được vẽ lại sau khi đổi giá trị: nhấn Tab sang ô kế tiếp thì không bị đưa về đầu trang
-const paneInputs=pane=>[...pane.querySelectorAll("input")].filter(x=>!x.disabled&&!x.readOnly&&x.type!=="hidden"&&x.type!=="file"&&x.offsetParent!==null);
+// Ô nằm trong mục đang đóng (details chưa mở) không nhận được focus nên bỏ qua
+const tabStop=x=>!x.disabled&&!x.readOnly&&x.type!=="hidden"&&x.type!=="file"&&x.offsetParent!==null&&!x.closest("details:not([open])");
+const paneInputs=pane=>[...pane.querySelectorAll("input")].filter(tabStop);
 let _tabNext=null;
 document.addEventListener("change",e=>{const el=e.target;if(!el||el.tagName!=="INPUT")return;const pane=el.closest(".tabpane");if(!pane)return;
   _tabNext={pane,i:paneInputs(pane).indexOf(el)};setTimeout(restoreTabFocus,0)},true);
 function restoreTabFocus(){const s=_tabNext;_tabNext=null;if(!s||s.i<0)return;
   const a=document.activeElement;if(a&&a!==document.body&&a.isConnected)return;
   const next=paneInputs(s.pane)[s.i+1];if(next)next.focus();}
-// Nhấn Tab ở ô cuối của tab thì sang tab kế tiếp (ô trống đầu tiên), không quay về đầu trang
-document.addEventListener("keydown",e=>{if(e.key!=="Tab"||e.shiftKey)return;const el=e.target;if(!el||el.tagName!=="INPUT")return;
-  const pane=el.closest(".tabpane");if(!pane)return;const list=paneInputs(pane);if(list[list.length-1]!==el)return;
+// Nhấn Tab ở phần tử cuối của tab thì sang tab kế tiếp (ô trống đầu tiên); hết tab thì quay vòng về tab đầu, không rơi về đầu trang
+const paneFocusables=pane=>[...pane.querySelectorAll("input,select,textarea,button")].filter(tabStop);
+const tabHasInputs=t=>{const p2=document.getElementById("tab-"+t);return !!(p2&&p2.querySelector("input:not([readonly]):not([disabled]):not([type=hidden]):not([type=file])"))};
+document.addEventListener("keydown",e=>{if(e.key!=="Tab"||e.shiftKey)return;const el=e.target;if(!el||!el.closest)return;
+  const pane=el.closest(".tabpane");if(!pane)return;const f=paneFocusables(pane),idx=f.indexOf(el);if(idx<0)return;
+  // Ô giữa tab: tự chuyển focus sau khi bảng vẽ lại (ô kế tiếp có thể bị thay thế khi đổi giá trị)
+  if(idx<f.length-1){e.preventDefault();el.blur();setTimeout(()=>{const g=paneFocusables(pane);const t=g[idx+1]||g[g.length-1];if(t)t.focus()},0);return}
   const btns=[...document.querySelectorAll(".tabs button")].filter(b=>!b.hidden);
-  const nb=btns.slice(btns.findIndex(b=>b.dataset.tab===pane.id.replace("tab-",""))+1)
-    .find(b=>{const p2=document.getElementById("tab-"+b.dataset.tab);return p2&&p2.querySelector("input:not([readonly]):not([disabled]):not([type=hidden]):not([type=file])")});
+  const ci=btns.findIndex(b=>b.dataset.tab===pane.id.replace("tab-",""));
+  const order=[...btns.slice(ci+1),...btns.slice(0,ci+1)];
+  const nb=order.find(b=>b.dataset.tab!==pane.id.replace("tab-","")&&tabHasInputs(b.dataset.tab));
   if(!nb)return;e.preventDefault();el.blur();nb.click()});
 // Chuyển tab bằng chuột: con trỏ nhảy vào ô trống đầu tiên của tab đó
 function focusNext(t){const pane=document.getElementById("tab-"+t);if(!pane)return;
-  const els=[...pane.querySelectorAll("input.v,input[type=text],input[type=number]")].filter(e=>!e.disabled&&!e.readOnly&&e.offsetParent!==null);
+  const els=[...pane.querySelectorAll("input.v,input[type=text],input[type=number]")].filter(tabStop);
   const target=els.find(e=>e.value.trim()==="")||els[0];if(target)try{target.focus({preventScroll:true});target.scrollIntoView({block:"center",behavior:"smooth"})}catch(e){}}
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{goTab(b.dataset.tab);focusNext(b.dataset.tab)}));
 $("#selNpp").addEventListener("change",()=>{fillMonths(mon());loadNpp()});
