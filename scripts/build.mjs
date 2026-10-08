@@ -11,6 +11,10 @@ const need = (k) => {
   return v;
 };
 const DATA_KEY = need("DATA_KEY"), ADMIN = need("ADMIN_PASSWORD"), NPP = need("NPP_PASSWORD");
+// Tên đăng nhập (biến không bí mật, mặc định admin / npp). Tên được mã hoá cùng khoá, không thể bỏ qua.
+const ADMIN_USER = (process.env.ADMIN_USER || "admin").trim().toLowerCase();
+const NPP_USER = (process.env.NPP_USER || "npp").trim().toLowerCase();
+if (ADMIN_USER === NPP_USER) { console.error("ADMIN_USER và NPP_USER phải khác nhau."); process.exit(1); }
 if (ADMIN === NPP) { console.error("ADMIN_PASSWORD và NPP_PASSWORD phải khác nhau."); process.exit(1); }
 
 const b64 = (u) => Buffer.from(u).toString("base64");
@@ -36,15 +40,15 @@ const iv = crypto.getRandomValues(new Uint8Array(12));
 const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
 
 // 3. Bọc CK theo từng quyền
-async function wrap(pw, role) {
+async function wrap(pw, role, user) {
   const salt = crypto.getRandomValues(new Uint8Array(16)), wiv = crypto.getRandomValues(new Uint8Array(12));
   const base = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveKey"]);
   const kek = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" }, base,
     { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
-  const w = await crypto.subtle.encrypt({ name: "AES-GCM", iv: wiv }, kek, enc.encode(JSON.stringify({ role, ck: b64(ck) })));
+  const w = await crypto.subtle.encrypt({ name: "AES-GCM", iv: wiv }, kek, enc.encode(JSON.stringify({ role, user, ck: b64(ck) })));
   return { salt: b64(salt), iv: b64(wiv), ct: b64(new Uint8Array(w)) };
 }
-const keys = [await wrap(ADMIN, "admin"), await wrap(NPP, "npp")];
+const keys = [await wrap(ADMIN, "admin", ADMIN_USER), await wrap(NPP, "npp", NPP_USER)];
 const sealed = JSON.stringify({ iter: ITER, iv: b64(iv), ct: b64(ct), keys });
 
 const html = shell.replace("{{STYLE}}", () => style).replace("{{BODY}}", () => body).replace("{{SEALED}}", () => sealed);
