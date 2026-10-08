@@ -627,7 +627,11 @@ function refreshDerived(){renderOps();applyOps();applyShares();renderVerify();re
 function refreshAll(){renderPrice();renderChan();renderSrc();refreshDerived()}
 function goTab(t){if(!tabOk(t))t="pl";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
   document.querySelectorAll(".tabpane").forEach(p=>p.hidden=p.id!=="tab-"+t);window.scrollTo({top:0})}
-document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>goTab(b.dataset.tab)));
+// Chuyển tab bằng chuột: con trỏ nhảy vào ô trống đầu tiên của tab đó
+function focusNext(t){const pane=document.getElementById("tab-"+t);if(!pane)return;
+  const els=[...pane.querySelectorAll("input.v,input[type=text],input[type=number]")].filter(e=>!e.disabled&&!e.readOnly&&e.offsetParent!==null);
+  const target=els.find(e=>e.value.trim()==="")||els[0];if(target)try{target.focus({preventScroll:true});target.scrollIntoView({block:"center",behavior:"smooth"})}catch(e){}}
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{goTab(b.dataset.tab);focusNext(b.dataset.tab)}));
 $("#selNpp").addEventListener("change",()=>{fillMonths(mon());loadNpp()});
 $("#selZone").addEventListener("change",()=>{fillNpp(+$("#selNpp").value);fillMonths(mon());loadNpp()});
 $("#selMon").addEventListener("change",loadNpp);
