@@ -176,18 +176,17 @@ function render(r){
   // Biểu đồ đường ROI (trục trái) và Profit % doanh thu (trục phải); tháng đang tính dùng số dự phóng
   const roiV=ms.map(m=>m===mm?r.roi:(n.months[m].open||n.months[m].roi==null)?null:n.months[m].roi*100);
   const pctV=ms.map(m=>m===mm?r.patPct:(n.months[m].open||!n.months[m].rev)?null:n.months[m].pat/n.months[m].rev*100);
-  const lineChart=()=>{const W=320,H=170,pl=34,pr=38,pt=16,pb=22,k=ms.length;
+  const lineChart=()=>{const W=320,H=170,pl=34,pr=12,pt=16,pb=22,k=ms.length;
     const xs=i=>k<2?(pl+W-pr)/2:pl+i*(W-pl-pr)/(k-1);
     const sc=vals=>{const nn=vals.filter(v=>v!=null),lo=Math.min(0,...nn),hi=Math.max(...nn,lo+0.01)*1.1;return {lo,hi,y:v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo))}};
-    const sR=sc(roiV),sP=sc(pctV);
+    const sR=sc(roiV.concat(pctV)),sP=sR;
     const pathOf=(vals,sg)=>{let d="",pen=false;vals.forEach((v,i)=>{if(v==null){pen=false;return}d+=`${pen?"L":"M"}${xs(i).toFixed(1)},${sg.y(v).toFixed(1)} `;pen=true});return d};
     const pts=ms.map((m,i)=>({m,label:mLbl(m)+(m===mm?" (dự phóng)":""),roi:roiV[i],pct:pctV[i],x:+xs(i).toFixed(1),yR:roiV[i]==null?null:+sR.y(roiV[i]).toFixed(1),yP:pctV[i]==null?null:+sP.y(pctV[i]).toFixed(1)}));
     const grid=[0,.5,1].map(f=>{const y=(pt+(H-pt-pb)*f).toFixed(1);return `<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" class="lc-grid"/>`}).join("");
-    const ax=`<text x="${pl-6}" y="${pt+4}" text-anchor="end">${fmt(sR.hi,1)}%</text><text x="${pl-6}" y="${H-pb}" text-anchor="end">${fmt(sR.lo,1)}%</text>`+
-      `<text x="${W-pr+6}" y="${pt+4}">${fmt(sP.hi,1)}%</text><text x="${W-pr+6}" y="${H-pb}">${fmt(sP.lo,1)}%</text>`;
+    const ax=`<text x="${pl-6}" y="${pt+4}" text-anchor="end">${fmt(sR.hi,1)}%</text><text x="${pl-6}" y="${H-pb}" text-anchor="end">${fmt(sR.lo,1)}%</text>`;
     const xl=pts.map(p=>`<text x="${p.x}" y="${H-6}" text-anchor="middle">T${+p.m.slice(5)}</text>`).join("");
     const dots=pts.map(p=>(p.yR!=null?`<circle cx="${p.x}" cy="${p.yR}" r="2.6" class="lc-r"/>`:"")+(p.yP!=null?`<circle cx="${p.x}" cy="${p.yP}" r="2.6" class="lc-p"/>`:"")).join("");
-    return `<div class="lc"><div class="lc-legend"><span><i class="lc-key-r"></i>ROI %/tháng (trục trái)</span><span><i class="lc-key-p"></i>Profit % doanh thu (trục phải)</span></div>
+    return `<div class="lc"><div class="lc-legend"><span><i class="lc-key-r"></i>ROI %/tháng</span><span><i class="lc-key-p"></i>Profit % doanh thu</span></div>
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Biểu đồ ROI và Profit theo tháng" data-pts='${JSON.stringify(pts).replace(/'/g,"&#39;")}'>
         ${grid}${ax}
         <path d="${pathOf(roiV,sR)}" class="lc-line-r" fill="none"/>
