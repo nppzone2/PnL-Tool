@@ -173,6 +173,31 @@ function render(r){
   const maxC=Math.max(...costs.map(c=>pc(r.g[c[1]],V)||0),BM.tr,1);
   const front=pc(r.gc,V),back=pc(r.oi,V),fb=Math.max(r.gc,0)+Math.max(r.oi,0)||1;
   const ms=Object.keys(n.months).sort(),vals=ms.map(m=>n.months[m].open?null:n.months[m].pat/n.months[m].vol),mx=Math.max(...vals.filter(v=>v!=null),pc(r.pat,V)||0,1);
+  // Biểu đồ đường ROI (trục trái) và Profit % doanh thu (trục phải); tháng đang tính dùng số dự phóng
+  const roiV=ms.map(m=>m===mm?r.roi:(n.months[m].open||n.months[m].roi==null)?null:n.months[m].roi*100);
+  const pctV=ms.map(m=>m===mm?r.patPct:(n.months[m].open||!n.months[m].rev)?null:n.months[m].pat/n.months[m].rev*100);
+  const lineChart=()=>{const W=320,H=170,pl=34,pr=12,pt=16,pb=22,k=ms.length;
+    const xs=i=>k<2?(pl+W-pr)/2:pl+i*(W-pl-pr)/(k-1);
+    const sc=vals=>{const nn=vals.filter(v=>v!=null),lo=Math.min(0,...nn),hi=Math.max(...nn,lo+0.01)*1.1;return {lo,hi,y:v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo))}};
+    const sR=sc(roiV.concat(pctV)),sP=sR;
+    const pathOf=(vals,sg)=>{let d="",pen=false;vals.forEach((v,i)=>{if(v==null){pen=false;return}d+=`${pen?"L":"M"}${xs(i).toFixed(1)},${sg.y(v).toFixed(1)} `;pen=true});return d};
+    const pts=ms.map((m,i)=>({m,label:mLbl(m)+(m===mm?" (dự phóng)":""),roi:roiV[i],pct:pctV[i],x:+xs(i).toFixed(1),yR:roiV[i]==null?null:+sR.y(roiV[i]).toFixed(1),yP:pctV[i]==null?null:+sP.y(pctV[i]).toFixed(1)}));
+    const grid=[0,.5,1].map(f=>{const y=(pt+(H-pt-pb)*f).toFixed(1);return `<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" class="lc-grid"/>`}).join("");
+    const ax=`<text x="${pl-6}" y="${pt+4}" text-anchor="end">${fmt(sR.hi,1)}%</text><text x="${pl-6}" y="${H-pb}" text-anchor="end">${fmt(sR.lo,1)}%</text>`;
+    const xl=pts.map(p=>`<text x="${p.x}" y="${H-6}" text-anchor="middle">T${+p.m.slice(5)}</text>`).join("");
+    const dots=pts.map(p=>(p.yR!=null?`<circle cx="${p.x}" cy="${p.yR}" r="2.6" class="lc-r"/>`:"")+(p.yP!=null?`<circle cx="${p.x}" cy="${p.yP}" r="2.6" class="lc-p"/>`:"")).join("");
+    return `<div class="lc"><div class="lc-legend"><span><i class="lc-key-r"></i>ROI %/tháng</span><span><i class="lc-key-p"></i>Profit % doanh thu</span></div>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Biểu đồ ROI và Profit theo tháng" data-pts='${JSON.stringify(pts).replace(/'/g,"&#39;")}'>
+        ${grid}${ax}
+        <path d="${pathOf(roiV,sR)}" class="lc-line-r" fill="none"/>
+        <path d="${pathOf(pctV,sP)}" class="lc-line-p" fill="none"/>
+        ${dots}${xl}
+        <line class="lc-guide" x1="0" x2="0" y1="${pt}" y2="${H-pb}" style="display:none"/>
+        <circle class="lc-hr" r="4.5" style="display:none"/><circle class="lc-hp" r="4.5" style="display:none"/>
+      </svg><div class="lc-tip" hidden></div></div>`};
+  const bestIdx=a=>{let b=-1;a.forEach((v,i)=>{if(v!=null&&(b<0||v>a[b]))b=i});return b};
+  const bR=bestIdx(roiV),bP=bestIdx(pctV);
+  const lcNote=bR>=0&&bP>=0?`ROI cao nhất ${mLbl(ms[bR])} (${fmt(roiV[bR],2)}%), Profit cao nhất ${mLbl(ms[bP])} (${fmt(pctV[bP],2)}%).`:"";
   const Sg=suggestions(r);
   const chk=act.open?`${mLbl(mm)} chưa có số chốt trên PnL Detail, đây là số dự phóng từ SO và giá bán.`:
     (Math.abs(r.pat-act.pat)<Math.max(1000,Math.abs(act.pat)*.0005)?`✓ Khớp PnL Detail ${mLbl(mm)}: PAT ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%.`:`Chênh so với thực tế ${mLbl(mm)}: PAT ${r.pat-act.pat>0?"+":""}${M(r.pat-act.pat)} tr (thực tế ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%).`);
@@ -188,6 +213,9 @@ function render(r){
   <div class="block"><h3>PAT/thùng theo tháng · ${n.code}</h3>
     <div class="trend">${ms.map((m,i)=>{const v=m===mm?pc(r.pat,V):vals[i];return `<span class="${m===mm?"on":vals[i]==null?"open":""}" style="height:${Math.max(v||0,0)/mx*100}%" title="${mLbl(m)}: ${fmt(v)} đ"></span>`}).join("")}</div>
     <div class="trendlbl">${ms.map(m=>`<i>T${+m.slice(5)}</i>`).join("")}</div></div>
+  <div class="block"><h3>ROI & Profit theo tháng · ${n.code}</h3>
+    ${lineChart()}
+    <p class="lc-note">${lcNote}</p></div>
   <div class="block"><h3>Front margin vs Back margin</h3>
     <div class="margin">
       <div class="mcard"><div class="k">Front margin <small>· giá bán − giá mua</small></div><div class="v num"${sgn(front)}>${fmt(front)} đ/thùng</div><div class="s">${M(r.gc)} tr · BM ${fmt(BM.gc)} đ</div></div>
@@ -702,6 +730,22 @@ function renderDep(){const out=$("#depOut");if(!out)return;const n=cur(),m=mon()
   <tbody>${trs}</tbody><tfoot><tr><td class="l" colspan="6">Tổng</td><td>${fmt(d.amt)}</td><td></td><td>${fmt(d.value)}</td></tr></tfoot></table></div>
   <p class="conclusion-line">${concl}</p>`;
 }
+// Rê chuột hoặc chạm vào biểu đồ ROI & Profit: hiện số liệu của tháng gần nhất
+function lcHide(){document.querySelectorAll("#out .lc").forEach(w=>{w.querySelector(".lc-tip").hidden=true;w.querySelectorAll(".lc-guide,.lc-hr,.lc-hp").forEach(c=>c.style.display="none")})}
+function lcShow(e){const svg=e.target.closest&&e.target.closest("#out .lc svg");if(!svg){lcHide();return}
+  const wrap=svg.parentElement,tip=wrap.querySelector(".lc-tip"),pts=JSON.parse(svg.dataset.pts);
+  const rc=svg.getBoundingClientRect(),vx=(e.clientX-rc.left)/rc.width*320;
+  let bi=0,bd=1e9;pts.forEach((p,i)=>{const d=Math.abs(p.x-vx);if(d<bd){bd=d;bi=i}});
+  const p=pts[bi];
+  const hl=(sel,y)=>{const c=svg.querySelector(sel);if(y==null){c.style.display="none";return}c.style.display="";c.setAttribute("cx",p.x);c.setAttribute("cy",y)};
+  hl(".lc-hr",p.yR);hl(".lc-hp",p.yP);
+  const g=svg.querySelector(".lc-guide");g.style.display="";g.setAttribute("x1",p.x);g.setAttribute("x2",p.x);
+  tip.hidden=false;
+  tip.innerHTML=`<b>${esc(p.label)}</b><div><i class="lc-key-r"></i>ROI: ${p.roi==null?"chưa chốt":fmt(p.roi,2)+"%"}</div><div><i class="lc-key-p"></i>Profit: ${p.pct==null?"chưa chốt":fmt(p.pct,2)+"%"}</div>`;
+  const left=Math.min(Math.max(p.x/320*rc.width,70),wrap.getBoundingClientRect().width-70);tip.style.left=left+"px"}
+$("#out").addEventListener("pointermove",lcShow);
+$("#out").addEventListener("pointerdown",lcShow);
+$("#out").addEventListener("pointerleave",lcHide);
 $("#depZone").addEventListener("change",e=>{$("#selZone").value=e.target.value;$("#selZone").dispatchEvent(new Event("change"))});
 $("#depNpp").addEventListener("change",e=>{$("#selNpp").value=e.target.value;$("#selNpp").dispatchEvent(new Event("change"))});
 
