@@ -183,9 +183,14 @@ function render(r){
     const pathOf=(vals,sg)=>{let d="",pen=false;vals.forEach((v,i)=>{if(v==null){pen=false;return}d+=`${pen?"L":"M"}${xs(i).toFixed(1)},${sg.y(v).toFixed(1)} `;pen=true});return d};
     const pts=ms.map((m,i)=>({m,label:mLbl(m)+(m===mm?" (dự phóng)":""),roi:roiV[i],pct:pctV[i],x:+xs(i).toFixed(1),yR:roiV[i]==null?null:+sR.y(roiV[i]).toFixed(1),yP:pctV[i]==null?null:+sP.y(pctV[i]).toFixed(1)}));
     const grid=[0,.5,1].map(f=>{const y=(pt+(H-pt-pb)*f).toFixed(1);return `<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" class="lc-grid"/>`}).join("");
-    const ax=`<text x="${pl-6}" y="${pt+4}" text-anchor="end">${fmt(sR.hi,1)}%</text><text x="${pl-6}" y="${H-pb}" text-anchor="end">${fmt(sR.lo,1)}%</text>`;
+    const ax=`<text x="${pl-6}" y="${pt+4}" text-anchor="end">${fmt(sR.hi,1)}%</text>`;
     const xl=pts.map(p=>`<text x="${p.x}" y="${H-6}" text-anchor="middle">T${+p.m.slice(5)}</text>`).join("");
-    const dots=pts.map(p=>(p.yR!=null?`<circle cx="${p.x}" cy="${p.yR}" r="2.6" class="lc-r"/>`:"")+(p.yP!=null?`<circle cx="${p.x}" cy="${p.yP}" r="2.6" class="lc-p"/>`:"")).join("");
+    // Giá trị hiển thị trực tiếp trên điểm; đường nào cao hơn thì nhãn của nó nằm phía trên, tránh đè nhau
+    const dots=pts.map(p=>{if(p.yR==null&&p.yP==null)return "";
+      const rUp=p.yR!=null&&p.yP!=null?p.yR<=p.yP:true;let h="";
+      if(p.yR!=null)h+=`<circle cx="${p.x}" cy="${p.yR}" r="2.6" class="lc-r"/><text x="${p.x}" y="${(rUp?p.yR-7:p.yR+12).toFixed(1)}" text-anchor="middle" class="lc-v lc-v-r">${fmt(p.roi,1)}</text>`;
+      if(p.yP!=null)h+=`<circle cx="${p.x}" cy="${p.yP}" r="2.6" class="lc-p"/><text x="${p.x}" y="${(rUp?p.yP+12:p.yP-7).toFixed(1)}" text-anchor="middle" class="lc-v lc-v-p">${fmt(p.pct,2)}</text>`;
+      return h}).join("");
     return `<div class="lc"><div class="lc-legend"><span><i class="lc-key-r"></i>ROI %/tháng</span><span><i class="lc-key-p"></i>Profit % doanh thu</span></div>
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Biểu đồ ROI và Profit theo tháng" data-pts='${JSON.stringify(pts).replace(/'/g,"&#39;")}'>
         ${grid}${ax}
