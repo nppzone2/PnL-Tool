@@ -25,6 +25,10 @@ function doPost(e) {
         if (role !== 'admin') return out_({ ok: false, error: 'Chỉ Admin được xem danh sách.' });
         return out_({ ok: true, items: list_(req.month) });
       case 'get': return out_({ ok: true, item: list_().find(x => x.key === req.key) || null });
+      case 'fa_list': return out_(fa_list_());
+      case 'fa_save':
+        if (role !== 'admin') return out_({ ok: false, error: 'Chỉ Admin được lưu sổ TSCĐ.' });
+        return out_(fa_save_(req.items, role));
       default: return out_({ ok: false, error: 'Action không hợp lệ.' });
     }
   } catch (err) {
@@ -69,6 +73,35 @@ function list_(month) {
         summary: { vol: r[8], rev: r[9], opex: r[10], pat: r[11], roi: r[12], credit: r[13] }, data
       };
     });
+}
+
+// Sổ TSCĐ dùng chung: sheet 'TSCD', Admin lưu toàn bộ danh sách; NPP và Admin đều đọc được
+const FA_SHEET = 'TSCD';
+const FA_HEAD = ['Key', 'DisID', 'Tên TSCĐ', 'Loại TSCĐ', 'Nguyên giá', 'Ngày bắt đầu', 'Số tháng KH', 'Cập nhật lúc', 'Người cập nhật'];
+
+function fa_list_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(FA_SHEET);
+  if (!sh) return { ok: true, saved: false, items: [] };
+  if (sh.getLastRow() < 2) return { ok: true, saved: true, items: [] };
+  const items = sh.getRange(2, 1, sh.getLastRow() - 1, 7).getValues().filter(r => r[0]).map(r => ({
+    k: String(r[0]), d: String(r[1]), n: String(r[2]), c: String(r[3]), v: Number(r[4]), s: String(r[5]), l: Number(r[6]) || 60 }));
+  return { ok: true, saved: true, items };
+}
+
+function fa_save_(items, role) {
+  if (!Array.isArray(items)) return { ok: false, error: 'Thiếu dữ liệu sổ TSCĐ.' };
+  const valid = items.every(x => x && x.k && x.d && x.n && x.c && +x.v > 0 && /^\d{4}-\d{2}-\d{2}$/.test(x.s || '')
+    && Number.isInteger(+x.l) && +x.l >= 1 && +x.l <= 240);
+  if (!valid) return { ok: false, error: 'Có dòng TSCĐ thiếu hoặc sai dữ liệu.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = sheet_(FA_SHEET, FA_HEAD), now = new Date();
+    if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, FA_HEAD.length).clearContent();
+    if (items.length) sh.getRange(2, 1, items.length, FA_HEAD.length).setValues(items.map(x => [
+      String(x.k), String(x.d), x.n, x.c, +x.v, "'" + x.s, +x.l, now, role]));
+    return { ok: true, count: items.length };
+  } finally { lock.releaseLock(); }
 }
 
 function role_(auth) {

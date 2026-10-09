@@ -51,7 +51,7 @@ DATA_KEY=<khoá> node scripts/seal-fa.mjs path/to/fa.csv   # ghi lại src/fa.en
 git add src/fa.enc && git commit -m "Update fixed assets" && git push
 ```
 
-File CSV có header `DisID,Tên TSCĐ,Loại TSCĐ,Nguyên giá,Ngày bắt đầu` (ngày dd/mm/yyyy, tên không chứa dấu phẩy). CSV chỉ dùng để mã hoá, không commit.
+File CSV có header `DisID,Tên TSCĐ,Loại TSCĐ,Nguyên giá,Ngày bắt đầu` (cột thứ 6 `Số tháng KH` không bắt buộc, mặc định 60) (ngày dd/mm/yyyy, tên không chứa dấu phẩy). CSV chỉ dùng để mã hoá, không commit.
 
 ## Build thử trên máy
 
@@ -59,3 +59,5 @@ File CSV có header `DisID,Tên TSCĐ,Loại TSCĐ,Nguyên giá,Ngày bắt đ�
 DATA_KEY=... ADMIN_PASSWORD=... NPP_PASSWORD=... node scripts/build.mjs
 npx serve dist
 ```
+
+Admin cũng có thể thêm, xoá tài sản ngay trong tab Khấu hao rồi bấm **Lưu sổ TSCĐ**; cần cập nhật Apps Script theo `server/README.md`.

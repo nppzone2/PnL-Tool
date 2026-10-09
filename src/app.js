@@ -111,13 +111,7 @@ function loadNpp(){
   set("wDays",26);set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
   $("#autoCur").checked=!!m.open&&siAmount(n.id,mon())!=null;$("#autoCred").checked=false;$("#autoCred").closest(".arow").hidden=true;
   document.querySelectorAll("input[data-ref]").forEach(el=>{delete el.dataset.ref;el.placeholder=""});
-  if(m.open){const d=depReport(n.id,mon());
-    // Khấu hao và tài sản còn lại lấy từ tab Khấu hao theo tháng làm P&L; chưa có sổ TSCĐ thì lấy số tháng trước
-    const r=n.months[addM(mon(),-1)],useFa=d.n>0;
-    const dv={depTruck:useFa?d.g.truck.amt:(r?r.depTruck||0:0),depFork:useFa?d.g.fork.amt:(r?r.depFork||0:0),depTools:useFa?d.g.tools.amt:(r?r.depTools||0:0)};
-    ["depTruck","depFork","depTools"].forEach(k=>{const v=dv[k];[["_q",v?1:0],["_v",v],["_s",v?100:0]].forEach(([x,rv])=>{const el=$("#"+k+x);el.value="";el.dataset.ref=String(rv);el.placeholder=fmt(rv)})});
-    const fx=useFa?d.value:(r?(r.fixed||0)-(r.depTruck||0)-(r.depFork||0)-(r.depTools||0):0);
-    const ef=$("#fixed");ef.value="";ef.dataset.ref=String(fx);ef.placeholder=fmt(fx)}
+  applyDepRefs(true);
   const so=soFor(n.id,mon());
   $("#modeSo").disabled=!so||!Object.keys(so).length;
   (so&&Object.keys(so).length?$("#modeSo"):$("#modeTot")).checked=true;toggleMode();
@@ -643,16 +637,21 @@ function checklist(){if(!isOpen())return "";const so=soRevenue(),miss=opsMissing
 function refreshDerived(){renderOps();applyOps();applyShares();renderVerify();renderSoSummary();renderGis();renderCmp();render(calc())}
 function refreshAll(){renderPrice();renderChan();renderSrc();renderDep();refreshDerived()}
 // ---- Khấu hao theo sổ TSCĐ (tháng làm P&L)
-const DEP_LIFE=60; // 5 năm, theo sổ TSCĐ của HVN
+const DEP_LIFE=60; // mặc định 5 năm theo sổ TSCĐ của HVN; hợp đồng thuê tài chính nhập số tháng riêng
 const DEP_GROUPS=[["truck","06.1.a Depreciation truck/3 wheels","Phương tiện vận tải & xe 3 bánh"],["fork","06.1.b Depreciation Forklift","Xe nâng"],["tools","06.1.c Depreciation/Tools","Thiết bị văn phòng"]];
 const depGroup=c=>/nâng/i.test(c)?"fork":/bánh|phương tiện/i.test(c)?"truck":"tools";
-const FA=(typeof FA_DATA!=="undefined"?FA_DATA:[]).map(x=>({id:String(x.d),name:x.n,cat:x.c,group:depGroup(x.c),cost:x.v,y:+x.s.slice(0,4),m:+x.s.slice(5,7),day:+x.s.slice(8,10)}));
+const FA_SEED=(typeof FA_DATA!=="undefined"?FA_DATA:[]).map((x,i)=>({k:"b"+i,d:String(x.d),n:x.n,c:x.c,v:x.v,s:x.s,l:+x.l||DEP_LIFE}));
+let FA=[],FA_SAVED=false,FA_DIRTY=false,FA_ERR="";
+// Sổ đang dùng: sổ nạp sẵn trong bản build, hoặc sổ đã lưu trên hệ thống
+function setFA(items){FA=items.map(x=>({k:String(x.k),id:String(x.d),name:x.n,cat:x.c,group:depGroup(x.c),cost:+x.v,s:x.s,y:+x.s.slice(0,4),m:+x.s.slice(5,7),day:+x.s.slice(8,10),life:+x.l||DEP_LIFE}))}
+const faRaw=()=>FA.map(a=>({k:a.k,d:a.id,n:a.name,c:a.cat,v:a.cost,s:a.s,l:a.life}));
+setFA(FA_SEED);
 const depIdx=(y,m)=>y*12+(m-1);
 // Làm tròn KH/tháng đến 100.000 đ; tài sản từ ngày 1 tính từ tháng đó, ngày khác tính từ tháng kế tiếp
 function depRow(a,m){const [y,mo]=m.split("-").map(Number);const start=depIdx(a.y,a.m)+(a.day>1?1:0),el=depIdx(y,mo)-start+1;
-  const monthly=Math.round(a.cost/DEP_LIFE/1e5)*1e5;
-  if(el<1)return {...a,monthly:0,rem:DEP_LIFE,value:a.cost,status:"notstarted"};
-  const rem=Math.max(0,DEP_LIFE-el);
+  const L=a.life,monthly=Math.round(a.cost/L/1e5)*1e5;
+  if(el<1)return {...a,monthly:0,rem:L,value:a.cost,status:"notstarted"};
+  const rem=Math.max(0,L-el);
   return rem>0?{...a,monthly,rem,value:monthly*rem,status:"active"}:{...a,monthly:0,rem:0,value:0,status:"done"}}
 function depReport(id,m){const rows=FA.filter(a=>a.id===String(id)).map(a=>depRow(a,m));const g={};
   DEP_GROUPS.forEach(([k])=>g[k]={amt:0,cnt:0});
@@ -660,20 +659,46 @@ function depReport(id,m){const rows=FA.filter(a=>a.id===String(id)).map(a=>depRo
   return {rows,g,n:rows.length,amt:DEP_GROUPS.reduce((s,[k])=>s+g[k].amt,0),active:rows.filter(r=>r.status==="active").length,
     value:rows.reduce((s,r)=>s+r.value,0),done:rows.filter(r=>r.status==="done").length}}
 const depDate=a=>`${String(a.day).padStart(2,"0")}/${String(a.m).padStart(2,"0")}/${a.y}`;
+// Khấu hao và tài sản còn lại lấy từ tab Khấu hao theo tháng làm P&L; chưa có sổ TSCĐ thì lấy số tháng trước
+// reset: xoá số đang nhập để dùng số tham chiếu (khi đổi NPP/tháng); không reset thì giữ số người dùng đã nhập
+function applyDepRefs(reset){const n=cur(),m=n.months[mon()];
+  ["depTruck_q","depTruck_v","depTruck_s","depFork_q","depFork_v","depFork_s","depTools_q","depTools_v","depTools_s","fixed"].forEach(id=>{const el=$("#"+id);delete el.dataset.ref;el.placeholder=""});
+  if(!m||!m.open)return;
+  const d=depReport(n.id,mon()),r=n.months[addM(mon(),-1)],useFa=d.n>0;
+  const dv={depTruck:useFa?d.g.truck.amt:(r?r.depTruck||0:0),depFork:useFa?d.g.fork.amt:(r?r.depFork||0:0),depTools:useFa?d.g.tools.amt:(r?r.depTools||0:0)};
+  ["depTruck","depFork","depTools"].forEach(k=>{const v=dv[k];[["_q",v?1:0],["_v",v],["_s",v?100:0]].forEach(([x,rv])=>{const el=$("#"+k+x);if(reset)el.value="";el.dataset.ref=String(rv);el.placeholder=fmt(rv)})});
+  const fx=useFa?d.value:(r?(r.fixed||0)-(r.depTruck||0)-(r.depFork||0)-(r.depTools||0):0);
+  const ef=$("#fixed");if(reset)ef.value="";ef.dataset.ref=String(fx);ef.placeholder=fmt(fx)}
+// Quản trị sổ TSCĐ: trạng thái, thêm/xoá dòng, lưu lên hệ thống
+function faStatus(){const el=$("#faMsg");if(!el)return;$("#faSave").disabled=!FA_DIRTY;
+  el.textContent=FA_DIRTY?"Có thay đổi chưa lưu lên hệ thống":FA_ERR||(FA_SAVED?"Sổ TSCĐ đã đồng bộ với hệ thống":"Đang dùng sổ nạp sẵn trong bản build")}
+function faChanged(){FA_DIRTY=true;renderDep();applyDepRefs(false);refreshDerived()}
+$("#faAdd").addEventListener("click",()=>{const n=cur(),name=$("#faName").value.trim(),cost=+$("#faCost").value,s=$("#faDate").value,L=Math.round(+$("#faLife").value);
+  if(!name||!(cost>0)||!/^\d{4}-\d{2}-\d{2}$/.test(s)||!(L>=1&&L<=240)){$("#faMsg").textContent="Nhập đủ tên, nguyên giá, ngày bắt đầu và số tháng KH (1–240).";return}
+  setFA([...faRaw(),{k:"n"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d:n.id,n:name,c:$("#faCat").value,v:cost,s,l:L}]);
+  $("#faName").value="";$("#faCost").value="";faChanged()});
+$("#depOut").addEventListener("click",e=>{const b=e.target.closest("[data-fa-del]");if(!b||!confirm("Xoá tài sản này khỏi sổ TSCĐ?"))return;setFA(faRaw().filter(x=>x.k!==b.dataset.faDel));faChanged()});
+$("#faSave").addEventListener("click",async()=>{const b=$("#faSave");b.disabled=true;$("#faMsg").textContent="Đang lưu…";
+  try{await api("fa_save",{items:faRaw()});FA_SAVED=true;FA_DIRTY=false;FA_ERR="";faStatus()}
+  catch(err){$("#faMsg").textContent="Chưa lưu được: "+err.message;b.disabled=!FA_DIRTY}});
+// Chỉ vẽ lại khi sổ thật sự khác bản nạp sẵn, tránh làm mất con trỏ khi đang nhập liệu
+async function loadFA(){if(!API_URL||!window.__AUTH)return;
+  try{const j=await api("fa_list",{});if(j.saved){setFA(j.items);FA_SAVED=true;renderDep();applyDepRefs(false);refreshDerived()}}
+  catch(err){FA_ERR="Chưa đồng bộ được sổ TSCĐ lên hệ thống (cần cập nhật Apps Script). Đang dùng sổ nạp sẵn.";faStatus()}}
 function renderDep(){const out=$("#depOut");if(!out)return;const n=cur(),m=mon();
   if(IS_ADMIN){const z=$("#depZone"),p=$("#depNpp");z.innerHTML=$("#selZone").innerHTML;z.value=$("#selZone").value;p.innerHTML=$("#selNpp").innerHTML;p.value=$("#selNpp").value}
-  $("#depFilter").hidden=!IS_ADMIN;
+  $("#depFilter").hidden=!IS_ADMIN;$("#depAdmin").hidden=!IS_ADMIN;faStatus();
   const d=depReport(n.id,m);
   $("#depTitle").textContent=`Tháng tính KH: ${mLbl(m)} · ${n.code} · DisID ${n.id}`;
-  if(!d.n){out.innerHTML=`<p class="lead">${IS_ADMIN?`Chưa có sổ TSCĐ của ${n.code}. Nạp sổ bằng scripts/seal-fa.mjs rồi build lại.`:"Chưa có sổ TSCĐ cho NPP của bạn. Vui lòng liên hệ Admin."}</p>`;return}
+  if(!d.n){out.innerHTML=`<p class="lead">${IS_ADMIN?`Chưa có tài sản nào của ${n.code}. Thêm bằng form phía trên.`:"Chưa có sổ TSCĐ cho NPP của bạn. Vui lòng liên hệ Admin."}</p>`;return}
   const cards=DEP_GROUPS.map(([k,t,s])=>`<div class="stat"><div class="k">${t}</div><div class="v">${fmt(d.g[k].amt)} đ</div><div class="s">${s} · ${d.g[k].cnt} tài sản</div></div>`).join("");
   const act=d.rows.filter(r=>r.status==="active");const longest=act.reduce((a,r)=>(!a||r.rem>a.rem)?r:a,null);
   const intro=`${n.code} đang có <b>${d.active}</b> tài sản khấu hao, tổng <b>${fmt(d.amt)} đ/tháng</b> tính đến ${mLbl(m)}.`;
   const concl=`Giá trị còn lại <b>${fmt(d.value)} đ</b>. ${d.done?`${d.done} tài sản đã hết khấu hao. `:""}${longest?`Tài sản còn lâu nhất đến ${mLbl(addM(m,longest.rem))} (${longest.rem} tháng).`:"Không còn tài sản nào đang khấu hao."}`;
-  const trs=d.rows.map((r,i)=>`<tr${r.status!=="active"?' class="dimrow"':""}><td>${i+1}</td><td class="l">${esc(r.name)}</td><td class="l">${esc(r.cat)}</td><td>${fmt(r.cost)}</td><td>${depDate(r)}</td><td>${DEP_LIFE}</td>
-    <td>${r.monthly?fmt(r.monthly):'<span class="muted">–</span>'}</td><td>${r.status==="active"?r.rem:r.status==="done"?"Hết KH":"Chưa KH"}</td><td>${r.value?fmt(r.value):'<span class="muted">–</span>'}</td></tr>`).join("");
+  const trs=d.rows.map((r,i)=>`<tr${r.status!=="active"?' class="dimrow"':""}><td>${i+1}</td><td class="l">${esc(r.name)}</td><td class="l">${esc(r.cat)}</td><td>${fmt(r.cost)}</td><td>${depDate(r)}</td><td>${r.life}</td>
+    <td>${r.monthly?fmt(r.monthly):'<span class="muted">–</span>'}</td><td>${r.status==="active"?r.rem:r.status==="done"?"Hết KH":"Chưa KH"}</td><td>${r.value?fmt(r.value):'<span class="muted">–</span>'}</td>${IS_ADMIN?`<td><button type="button" class="linkdel" data-fa-del="${r.k}">Xoá</button></td>`:""}</tr>`).join("");
   out.innerHTML=`<p class="lead">${intro}</p><div class="stats dep-stats">${cards}<div class="stat"><div class="k">Tổng KH / tháng</div><div class="v">${fmt(d.amt)} đ</div><div class="s">${d.active} tài sản đang khấu hao</div></div><div class="stat"><div class="k">Giá trị còn lại</div><div class="v">${fmt(d.value)} đ</div><div class="s">KH/tháng × số tháng còn lại</div></div></div>
-  <div class="scroll"><table class="dt dep"><thead><tr><th>STT</th><th class="l">Tên TSCĐ</th><th class="l">Loại TSCĐ</th><th>Nguyên giá</th><th>Ngày bắt đầu sử dụng</th><th>Số tháng KH</th><th>Số tiền KH/tháng</th><th>Số tháng còn lại</th><th>Số tiền còn lại</th></tr></thead>
+  <div class="scroll"><table class="dt dep"><thead><tr><th>STT</th><th class="l">Tên TSCĐ</th><th class="l">Loại TSCĐ</th><th>Nguyên giá</th><th>Ngày bắt đầu sử dụng</th><th>Số tháng KH</th><th>Số tiền KH/tháng</th><th>Số tháng còn lại</th><th>Số tiền còn lại</th>${IS_ADMIN?"<th></th>":""}</tr></thead>
   <tbody>${trs}</tbody><tfoot><tr><td class="l" colspan="6">Tổng</td><td>${fmt(d.amt)}</td><td></td><td>${fmt(d.value)}</td></tr></tfoot></table></div>
   <p class="conclusion-line">${concl}</p>`;
 }
@@ -694,7 +719,7 @@ function restoreTabFocus(){const s=_tabNext;_tabNext=null;if(!s||s.i<0)return;
   const next=paneInputs(s.pane)[s.i+1];if(next)next.focus();}
 // Nhấn Tab ở phần tử cuối của tab thì sang tab kế tiếp (ô trống đầu tiên); hết tab thì quay vòng về tab đầu, không rơi về đầu trang
 const paneFocusables=pane=>[...pane.querySelectorAll("input,select,textarea,button")].filter(tabStop);
-const tabHasInputs=t=>{const p2=document.getElementById("tab-"+t);return !!(p2&&p2.querySelector("input:not([readonly]):not([disabled]):not([type=hidden]):not([type=file])"))};
+const tabHasInputs=t=>{const p2=document.getElementById("tab-"+t);return !!(p2&&[...p2.querySelectorAll("input:not([readonly]):not([disabled]):not([type=hidden]):not([type=file])")].some(x=>!x.closest("[hidden]:not(.tabpane)")&&!x.closest("details:not([open])")))};
 // Enter trong ô nhập hoạt động như Tab: chuyển sang ô kế tiếp
 document.addEventListener("keydown",e=>{const el=e.target;if(!el||!el.closest)return;
   const isTab=e.key==="Tab"&&!e.shiftKey;
@@ -764,6 +789,7 @@ $("#subT").addEventListener("click",e=>{const k=e.target.dataset&&e.target.datas
   applySub(x,true);LS.set("ops",S.ops);LS.set("prices",S.prices);
   const i=NPP.findIndex(n=>n.id===x.disId);if(i<0)return;setNpp(i);fillMonths(x.month);loadNpp();refreshAll();goTab("pl")});
 $("#subRefresh").onclick=loadSubs;$("#subMon").onchange=renderSubs;$("#subZone").onchange=renderSubs;
+loadFA();
 if(IS_ADMIN&&API_URL)loadSubs();else if(IS_ADMIN)$("#subMsg").textContent="Chưa cấu hình API_URL nên chưa nhận được bài nộp.";
 
 // Ẩn tab ngoài phạm vi quyền
