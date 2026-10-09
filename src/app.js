@@ -1,5 +1,5 @@
 // ---- Phân quyền (ROLE do trang đăng nhập gán: "admin" | "npp")
-const ROLE=window.__ROLE||"npp",IS_ADMIN=ROLE==="admin",NPP_TABS=["pl","price","ops"];
+const ROLE=window.__ROLE||"npp",IS_ADMIN=ROLE==="admin",NPP_TABS=["pl","price","ops","dep"];
 const tabOk=t=>IS_ADMIN||NPP_TABS.includes(t);
 const GIS_SKUS=[["BVC","Bia Viet Can 24s (330)"],["BVP","Bia Viet Bottle 20s (355)"],["H025","Heineken 0.0 MalBev Sleek Can 4x6s (250)"],["HP","Heineken Bottle 24s (330)"],["HS","Heineken Sleek Can 24s (330)"],["HS2","Heineken Silver Sleek Can 24s (250)"],["HSB","Heineken Silver Bottle 24s (330)"],["HSC","Heineken Silver Sleek Can 24s (330)"],["HSD","Heineken Silver Draught Keg (20L)"],["SB6","Strongbow Berries Sleek Can 4x6s (320)"],["SD6","SB Dark Fruit Sleek Can 4x6s (320)"],["SM32","Strongbow Mixed Sleek Can 24s (320)"],["TC25","Tiger Sleek Can 24s (250)"],["TCS","Tiger Sleek Can 24s (330)"],["TD","Tiger Draught Keg (20L)"],["TMC","Tiger Smooth Can 24s (330)"],["TP","Tiger Bottle 24s (330)"],["TS","Tiger Crystal Bottle 24s (330)"],["TS25","Tiger Crystal Sleek Can 24s (250)"],["TSS","Tiger Crystal Sleek Can 24s (330)"]];
 const EXTRA_NAMES={HA12:"Heineken Silver 12 chai nhôm 330",LC:"Larue thùng 24 lon 330",BIX:"Bivina Export thùng 24 lon 330",SG6:"SB táo khay 4x6 lon 320",SPB:"SB Dứa Lựu thùng 24 chai 330"};
@@ -111,9 +111,13 @@ function loadNpp(){
   set("wDays",26);set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
   $("#autoCur").checked=!!m.open&&siAmount(n.id,mon())!=null;$("#autoCred").checked=false;$("#autoCred").closest(".arow").hidden=true;
   document.querySelectorAll("input[data-ref]").forEach(el=>{delete el.dataset.ref;el.placeholder=""});
-  if(m.open){const r=n.months[addM(mon(),-1)],lb=mLbl(addM(mon(),-1));
-    ["depTruck","depFork","depTools"].forEach(k=>{const v=r?r[k]||0:0;[["_q",v?1:0],["_v",v],["_s",v?100:0]].forEach(([x,rv])=>{const el=$("#"+k+x);el.value="";el.dataset.ref=String(rv);el.placeholder=fmt(rv)})});
-    const ef=$("#fixed"),fx=r?(r.fixed||0)-(r.depTruck||0)-(r.depFork||0)-(r.depTools||0):0;ef.value="";ef.dataset.ref=String(fx);ef.placeholder=fmt(fx)}
+  if(m.open){const d=depReport(n.id,mon());
+    // Khấu hao và tài sản còn lại lấy từ tab Khấu hao theo tháng làm P&L; chưa có sổ TSCĐ thì lấy số tháng trước
+    const r=n.months[addM(mon(),-1)],useFa=d.n>0;
+    const dv={depTruck:useFa?d.g.truck.amt:(r?r.depTruck||0:0),depFork:useFa?d.g.fork.amt:(r?r.depFork||0:0),depTools:useFa?d.g.tools.amt:(r?r.depTools||0:0)};
+    ["depTruck","depFork","depTools"].forEach(k=>{const v=dv[k];[["_q",v?1:0],["_v",v],["_s",v?100:0]].forEach(([x,rv])=>{const el=$("#"+k+x);el.value="";el.dataset.ref=String(rv);el.placeholder=fmt(rv)})});
+    const fx=useFa?d.value:(r?(r.fixed||0)-(r.depTruck||0)-(r.depFork||0)-(r.depTools||0):0);
+    const ef=$("#fixed");ef.value="";ef.dataset.ref=String(fx);ef.placeholder=fmt(fx)}
   const so=soFor(n.id,mon());
   $("#modeSo").disabled=!so||!Object.keys(so).length;
   (so&&Object.keys(so).length?$("#modeSo"):$("#modeTot")).checked=true;toggleMode();
@@ -632,12 +636,50 @@ function checklist(){if(!isOpen())return "";const so=soRevenue(),miss=opsMissing
   const fc=["petro","bike","driver"].filter(k=>FIN(k)!=null).length;if(IS_ADMIN)items.push([fc===3?"ok":"warn",`Verify data: đã chốt ${fc}/3 mục chi phí (xăng xe tải, xe máy, nhân sự)`]);
   const sent=(S.ops[okey()]||{}).sentAt;items.push([sent?"ok":"warn",sent?`Đã gửi về hệ thống lúc ${tLbl(sent)}`:"Chưa gửi về hệ thống: bấm Hoàn tất ở tab Chi phí vận hành"]);
   const usingRef=["depTruck_v","depFork_v","depTools_v","fixed"].filter(id=>isBlank(id)&&$("#"+id).dataset.ref);
-  if(usingRef.length)items.push(["warn",`Khấu hao / tài sản còn lại đang lấy số ${mLbl(addM(mon(),-1))}: nhập số tháng này ở mục 2 và 4`]);
+  if(usingRef.length)items.push(["warn",`Khấu hao / tài sản còn lại đang lấy từ tab Khấu hao · ${mLbl(mon())}${depReport(cur().id,mon()).n?"":" (chưa có sổ TSCĐ, lấy số tháng trước)"}`]);
   return `<div class="sugg" style="margin:12px 0 0"><h3>Tiến độ hoàn thiện ${mLbl(mon())}</h3>${items.map(i=>`<div class="sitem"><span class="dot ${i[0]}">${i[0]==="ok"?"✓":"!"}</span><span>${i[1]}</span></div>`).join("")}</div>`}
 
 // ---- orchestration
 function refreshDerived(){renderOps();applyOps();applyShares();renderVerify();renderSoSummary();renderGis();renderCmp();render(calc())}
-function refreshAll(){renderPrice();renderChan();renderSrc();refreshDerived()}
+function refreshAll(){renderPrice();renderChan();renderSrc();renderDep();refreshDerived()}
+// ---- Khấu hao theo sổ TSCĐ (tháng làm P&L)
+const DEP_LIFE=60; // 5 năm, theo sổ TSCĐ của HVN
+const DEP_GROUPS=[["truck","06.1.a Depreciation truck/3 wheels","Phương tiện vận tải & xe 3 bánh"],["fork","06.1.b Depreciation Forklift","Xe nâng"],["tools","06.1.c Depreciation/Tools","Thiết bị văn phòng"]];
+const depGroup=c=>/nâng/i.test(c)?"fork":/bánh|phương tiện/i.test(c)?"truck":"tools";
+const FA=(typeof FA_DATA!=="undefined"?FA_DATA:[]).map(x=>({id:String(x.d),name:x.n,cat:x.c,group:depGroup(x.c),cost:x.v,y:+x.s.slice(0,4),m:+x.s.slice(5,7),day:+x.s.slice(8,10)}));
+const depIdx=(y,m)=>y*12+(m-1);
+// Làm tròn KH/tháng đến 100.000 đ; tài sản từ ngày 1 tính từ tháng đó, ngày khác tính từ tháng kế tiếp
+function depRow(a,m){const [y,mo]=m.split("-").map(Number);const start=depIdx(a.y,a.m)+(a.day>1?1:0),el=depIdx(y,mo)-start+1;
+  const monthly=Math.round(a.cost/DEP_LIFE/1e5)*1e5;
+  if(el<1)return {...a,monthly:0,rem:DEP_LIFE,value:a.cost,status:"notstarted"};
+  const rem=Math.max(0,DEP_LIFE-el);
+  return rem>0?{...a,monthly,rem,value:monthly*rem,status:"active"}:{...a,monthly:0,rem:0,value:0,status:"done"}}
+function depReport(id,m){const rows=FA.filter(a=>a.id===String(id)).map(a=>depRow(a,m));const g={};
+  DEP_GROUPS.forEach(([k])=>g[k]={amt:0,cnt:0});
+  rows.forEach(r=>{if(r.status==="active"){g[r.group].amt+=r.monthly;g[r.group].cnt++}});
+  return {rows,g,n:rows.length,amt:DEP_GROUPS.reduce((s,[k])=>s+g[k].amt,0),active:rows.filter(r=>r.status==="active").length,
+    value:rows.reduce((s,r)=>s+r.value,0),done:rows.filter(r=>r.status==="done").length}}
+const depDate=a=>`${String(a.day).padStart(2,"0")}/${String(a.m).padStart(2,"0")}/${a.y}`;
+function renderDep(){const out=$("#depOut");if(!out)return;const n=cur(),m=mon();
+  if(IS_ADMIN){const z=$("#depZone"),p=$("#depNpp");z.innerHTML=$("#selZone").innerHTML;z.value=$("#selZone").value;p.innerHTML=$("#selNpp").innerHTML;p.value=$("#selNpp").value}
+  $("#depFilter").hidden=!IS_ADMIN;
+  const d=depReport(n.id,m);
+  $("#depTitle").textContent=`Tháng tính KH: ${mLbl(m)} · ${n.code} · DisID ${n.id}`;
+  if(!d.n){out.innerHTML=`<p class="lead">${IS_ADMIN?`Chưa có sổ TSCĐ của ${n.code}. Nạp sổ bằng scripts/seal-fa.mjs rồi build lại.`:"Chưa có sổ TSCĐ cho NPP của bạn. Vui lòng liên hệ Admin."}</p>`;return}
+  const cards=DEP_GROUPS.map(([k,t,s])=>`<div class="stat"><div class="k">${t}</div><div class="v">${fmt(d.g[k].amt)} đ</div><div class="s">${s} · ${d.g[k].cnt} tài sản</div></div>`).join("");
+  const act=d.rows.filter(r=>r.status==="active");const longest=act.reduce((a,r)=>(!a||r.rem>a.rem)?r:a,null);
+  const intro=`${n.code} đang có <b>${d.active}</b> tài sản khấu hao, tổng <b>${fmt(d.amt)} đ/tháng</b> tính đến ${mLbl(m)}.`;
+  const concl=`Giá trị còn lại <b>${fmt(d.value)} đ</b>. ${d.done?`${d.done} tài sản đã hết khấu hao. `:""}${longest?`Tài sản còn lâu nhất đến ${mLbl(addM(m,longest.rem))} (${longest.rem} tháng).`:"Không còn tài sản nào đang khấu hao."}`;
+  const trs=d.rows.map((r,i)=>`<tr${r.status!=="active"?' class="dimrow"':""}><td>${i+1}</td><td class="l">${esc(r.name)}</td><td class="l">${esc(r.cat)}</td><td>${fmt(r.cost)}</td><td>${depDate(r)}</td><td>${DEP_LIFE}</td>
+    <td>${r.monthly?fmt(r.monthly):'<span class="muted">–</span>'}</td><td>${r.status==="active"?r.rem:r.status==="done"?"Hết KH":"Chưa KH"}</td><td>${r.value?fmt(r.value):'<span class="muted">–</span>'}</td></tr>`).join("");
+  out.innerHTML=`<p class="lead">${intro}</p><div class="stats dep-stats">${cards}<div class="stat"><div class="k">Tổng KH / tháng</div><div class="v">${fmt(d.amt)} đ</div><div class="s">${d.active} tài sản đang khấu hao</div></div><div class="stat"><div class="k">Giá trị còn lại</div><div class="v">${fmt(d.value)} đ</div><div class="s">KH/tháng × số tháng còn lại</div></div></div>
+  <div class="scroll"><table class="dt dep"><thead><tr><th>STT</th><th class="l">Tên TSCĐ</th><th class="l">Loại TSCĐ</th><th>Nguyên giá</th><th>Ngày bắt đầu sử dụng</th><th>Số tháng KH</th><th>Số tiền KH/tháng</th><th>Số tháng còn lại</th><th>Số tiền còn lại</th></tr></thead>
+  <tbody>${trs}</tbody><tfoot><tr><td class="l" colspan="6">Tổng</td><td>${fmt(d.amt)}</td><td></td><td>${fmt(d.value)}</td></tr></tfoot></table></div>
+  <p class="conclusion-line">${concl}</p>`;
+}
+$("#depZone").addEventListener("change",e=>{$("#selZone").value=e.target.value;$("#selZone").dispatchEvent(new Event("change"))});
+$("#depNpp").addEventListener("change",e=>{$("#selNpp").value=e.target.value;$("#selNpp").dispatchEvent(new Event("change"))});
+
 function goTab(t){if(!tabOk(t))t="pl";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
   document.querySelectorAll(".tabpane").forEach(p=>p.hidden=p.id!=="tab-"+t);window.scrollTo({top:0})}
 // Giữ con trỏ khi bảng được vẽ lại sau khi đổi giá trị: nhấn Tab sang ô kế tiếp thì không bị đưa về đầu trang

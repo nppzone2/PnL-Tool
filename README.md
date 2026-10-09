@@ -44,6 +44,15 @@ git add src/data.enc && git commit -m "Update data" && git push
 
 Không commit file dữ liệu thô.
 
+### Cập nhật sổ TSCĐ (tab Khấu hao)
+
+```bash
+DATA_KEY=<khoá> node scripts/seal-fa.mjs path/to/fa.csv   # ghi lại src/fa.enc
+git add src/fa.enc && git commit -m "Update fixed assets" && git push
+```
+
+File CSV có header `DisID,Tên TSCĐ,Loại TSCĐ,Nguyên giá,Ngày bắt đầu` (ngày dd/mm/yyyy, tên không chứa dấu phẩy). CSV chỉ dùng để mã hoá, không commit.
+
 ## Build thử trên máy
 
 ```bash
