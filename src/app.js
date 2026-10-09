@@ -227,7 +227,7 @@ const vatOf=sku=>/^H0\d/.test(sku)?0.08:0.10; // Heineken 0.0 (không cồn) 8%,
 function buyPrice(sku){const t=typed(sku,"BUY");if(t)return {v:t,src:"input"};const a=S.si;
   if(a&&a.month===mon()&&a.sku&&a.sku[cur().id]&&a.sku[cur().id][sku])return {v:Math.round(a.sku[cur().id][sku]*(S.buyVat?1+vatOf(sku):1)),src:"SI"};return null}
 // Số đầy đủ, 3 số cuối hiển thị nhỏ
-const fT=v=>{if(v==null||!isFinite(v))return "–";if(Math.round(v)===0)return "0 đ";const neg=v<0,d=String(Math.round(Math.abs(v))),last=d.slice(-3).padStart(3,"0"),head=d.length>3?d.slice(0,-3).replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";return `${neg?"-":""}${head}${head?".":""}<span class="l3">${last}</span> đ`};
+const fT=v=>{if(v==null||!isFinite(v))return "–";if(Math.round(v)===0)return "0";const neg=v<0,d=String(Math.round(Math.abs(v))),last=d.slice(-3).padStart(3,"0"),head=d.length>3?d.slice(0,-3).replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";return `${neg?"-":""}${head}${head?".":""}<span class="l3">${last}</span>`};
 function renderPriceKpi(buyT,rv){const el=$("#priceKpi");if(!el)return;const c=calc(),tr=CH.reduce((x,k)=>x+(rv[k]||0),0);
   const tile=(k,v,s)=>`<div><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
   const mk=c.g&&c.g.mk||0;el.innerHTML=tile("Tổng giá nhập",fT(buyT),"Sản lượng SO × giá nhập")+tile("Tổng doanh thu",fT(tr),"Sản lượng × giá bán theo kênh")+tile("Đầu tư thị trường",fT(mk),"Market Invest")+tile("COGS",fT(tr-buyT-mk),"Doanh thu − giá nhập − đầu tư thị trường")}
@@ -266,7 +266,7 @@ function gisRows(){const n=cur(),so=soFor(n.id,mon());
   return skuList(so,true).filter(s=>ON_FORM.has(s)||(so&&so[s])).map(sku=>{const ws=typed(sku,"SDIS"),b=retailBlend(sku,so),r=so&&so[sku]||{};
     return {sku,name:`${sku} - ${SKU_NAME[sku]||""}`,ws:finPrice(sku,"ws")??ws,rt:finPrice(sku,"rt")??rt1k(b.v),share:b.share,vol:(r.SDIS||0)+(r.OFF||0)+(r.ON||0)}})}
 const GIS_OPS=[["Total Depreciation / Tổng khấu hao",["depTruck","depFork","depTools"]],["Total Transportation - Tổng CP vận chuyển",["petro","bike","trOther"]],["Total management cost - Chi phí nhân sự",["hireWh","driver","whKeeper","dsm","mgmt","office","otherFee"]]];
-const OPS_SHARED=new Set(["petro","bike","trOther","hireWh","driver"]);
+const OPS_SHARED=new Set(["petro","bike","trOther","hireWh","driver"]),OPS_SHARE_ID={petro:"petro",bike:"bike",trOther:"rent",hireWh:"wh",driver:"drv"};
 const GIS_MK=[["Total market investment - Chi phí đầu tư thị trường",["mkWs","mkRt","mkOt"]],["Capital cost - Chi phí vốn",["capInt","capBad","capOt"]]];
 const opName=k=>{const o=OPS.find(x=>x[0]===k)||MKS.find(x=>x[0]===k);return `${o[1]} - ${o[2]}`};
 function gisSheet(){const rows=gisRows(),L=[];const v=id=>{const el=$("#"+id);return isBlank(id)&&!(el&&el.dataset.ref)?null:val(id)};
@@ -287,7 +287,7 @@ function renderGis(){const L=gisSheet();let cols=3,html="";
   L.forEach(x=>{if(x.h){const c=x.cols;html+=`<tr class="sech"><th class="l" colspan="${4-c.length}">${esc(x.h)}</th>${c.map(t=>`<th>${t}</th>`).join("")}</tr>`}
     else if(x.g){html+=`<tr class="subh"><td class="l" colspan="4">${esc(x.g)}</td></tr>`}
     else{const c=x.c;const cells=c.length===2?[null,...c]:c;
-      html+=`<tr${x.miss?' class="miss"':""}><td class="l">${esc(x.n)}${x.extra?` <span class="chip">${x.extra}</span>`:""}</td>${cells.map((z,i)=>x.k&&i===2&&OPS_SHARED.has(x.k)?`<td title="Lấy từ tab Chi phí vận hành"><span class="chip">Vận hành</span> ${z!=null?fmt(z,Math.abs(z%1)>1e-9?2:0):"–"}</td>`:x.k&&i===2?`<td><input class="v" inputmode="decimal" data-gshare="${x.k}" value="${z!=null?fmt(z,Math.abs(z%1)>1e-9?2:0):""}" placeholder="%" style="max-width:90px;min-width:70px"></td>`:`<td>${z==null?(c.length===2&&i===0?"":'<span class="muted">–</span>'):fmt(z,Math.abs(z%1)>1e-9?2:0)}</td>`).join("")}</tr>`}});
+      html+=`<tr${x.miss?' class="miss"':""}><td class="l">${esc(x.n)}${x.extra?` <span class="chip">${x.extra}</span>`:""}</td>${cells.map((z,i)=>x.k&&i===2&&OPS_SHARED.has(x.k)?`<td><input class="v" inputmode="decimal" data-gshare="${x.k}" value="${(OPV(OPS_SHARE_ID[x.k]+"_sh")??"")!==""?fmt(OPV(OPS_SHARE_ID[x.k]+"_sh")):""}" placeholder="100%" style="max-width:90px;min-width:70px" title="Đồng bộ với %Share ở tab Chi phí vận hành"></td>`:x.k&&i===2?`<td><input class="v" inputmode="decimal" data-gshare="${x.k}" value="${z!=null?fmt(z,Math.abs(z%1)>1e-9?2:0):""}" placeholder="%" style="max-width:90px;min-width:70px"></td>`:`<td>${z==null?(c.length===2&&i===0?"":'<span class="muted">–</span>'):fmt(z,Math.abs(z%1)>1e-9?2:0)}</td>`).join("")}</tr>`}});
   $("#gisT").innerHTML=`<tbody>${html}</tbody>`;
   const miss=L.filter(x=>x.miss).length;$("#gisMiss").textContent=miss?`${miss} SKU chưa đủ giá, bổ sung ở tab Giá bán.`:"Đã đủ giá cho tất cả SKU.";}
 $("#copyGis").onclick=async()=>{const t=gisSheet().map(x=>x.h?[x.h,...(x.cols.length===2?["",...x.cols]:x.cols)].join("\t"):x.g?x.g:[x.n,...x.c.map(z=>z==null?"":Math.round(z*100)/100)].join("\t")).join("\n");
@@ -560,7 +560,10 @@ $("#opsSubmit").addEventListener("click",async()=>{if(!creditOk()){renderOps();$
 const ENG_KEYS=["petro","bike","trOther","hireWh","driver"];
 S.gshare=LS.get("gshare",{});
 function applyShares(){const g=S.gshare[okey()]||{};for(const k in g)if(!OPS_SHARED.has(k))set(k+"_s",g[k])}
-$("#gisT").addEventListener("change",e=>{const k=e.target.dataset.gshare;if(!k)return;const key=okey();S.gshare[key]=S.gshare[key]||{};
+$("#gisT").addEventListener("change",e=>{const k=e.target.dataset.gshare;if(!k)return;const key=okey();
+  if(OPS_SHARED.has(k)){const id=OPS_SHARE_ID[k];S.ops[key]=S.ops[key]||{};const v=e.target.value.trim()===""?null:parse(e.target.value);
+    if(v==null)delete S.ops[key][id+"_sh"];else S.ops[key][id+"_sh"]=Math.min(Math.max(v,0),100);LS.set("ops",S.ops);refreshDerived();return}
+  S.gshare[key]=S.gshare[key]||{};
   const v=e.target.value.trim()===""?null:parse(e.target.value);if(v==null)delete S.gshare[key][k];else S.gshare[key][k]=Math.min(Math.max(v,0),100);LS.set("gshare",S.gshare);refreshDerived()});
 function applyOps(){const open=isOpen();
   ENG_KEYS.forEach(k=>["_q","_v","_s"].forEach(x=>{const el=$("#"+k+x);if(el)el.readOnly=open}));["mkWs_v","mkRt_v","mkOt_v","mkWs_p","mkRt_p","mkOt_p","credit"].forEach(id=>$("#"+id).readOnly=open);
@@ -722,5 +725,5 @@ $("#subRefresh").onclick=loadSubs;$("#subMon").onchange=renderSubs;$("#subZone")
 if(IS_ADMIN&&API_URL)loadSubs();else if(IS_ADMIN)$("#subMsg").textContent="Chưa cấu hình API_URL nên chưa nhận được bài nộp.";
 
 // Ẩn tab ngoài phạm vi quyền
-document.querySelectorAll(".tabs button").forEach(b=>{if(!tabOk(b.dataset.tab))b.hidden=true});
+document.querySelectorAll(".tabs button").forEach(b=>{if(!tabOk(b.dataset.tab)){b.hidden=true;b.style.setProperty("display","none","important")}});
 goTab("pl");
