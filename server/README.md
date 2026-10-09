@@ -4,7 +4,7 @@ Khi NPP bấm **Hoàn tất & gửi về hệ thống**, Giá bán + Chi phí v�
 
 ## Cài đặt (khoảng 5 phút)
 
-1. Tạo Google Sheet mới, đặt tên ví dụ `NPP P&L – Bài nộp`.
+1. Tạo Google Sheet mới, đặt tên ví dụ `Distributor P&L – Bài nộp`.
 2. **Extensions → Apps Script**, xoá code mẫu, dán toàn bộ nội dung `server/Code.gs`, bấm **Save**.
 3. **Project Settings (biểu tượng bánh răng) → Script Properties → Add**:
    - `ADMIN_PASSWORD` = đúng mật khẩu Admin trong GitHub secret

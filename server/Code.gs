@@ -1,5 +1,5 @@
 /**
- * NPP P&L Simulator · API lưu bài nộp của NPP vào Google Sheet.
+ * Distributor P&L Simulator · API lưu bài nộp của NPP vào Google Sheet.
  * Cài đặt: xem server/README.md
  * Script Properties cần có: ADMIN_PASSWORD và NPP_PASSWORD (trùng GitHub secrets).
  */

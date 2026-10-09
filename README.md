@@ -1,4 +1,4 @@
-# NPP P&L Simulator · HCM Zone 2 & 3
+# Distributor P&L Simulator · HCM Zone 2 & 3
 
 Công cụ mô phỏng P&L nhà phân phối (tháng M-1, tham chiếu M-2), triển khai qua GitHub Pages với 2 cấp truy cập.
 
