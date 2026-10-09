@@ -173,6 +173,12 @@ function render(r){
   const maxC=Math.max(...costs.map(c=>pc(r.g[c[1]],V)||0),BM.tr,1);
   const front=pc(r.gc,V),back=pc(r.oi,V),fb=Math.max(r.gc,0)+Math.max(r.oi,0)||1;
   const ms=Object.keys(n.months).sort(),vals=ms.map(m=>n.months[m].open?null:n.months[m].pat/n.months[m].vol),mx=Math.max(...vals.filter(v=>v!=null),pc(r.pat,V)||0,1);
+  // Xu hướng ROI và PAT % doanh thu theo tháng: tháng đang tính dùng số dự phóng, tháng chưa chốt để trống
+  const roiV=ms.map(m=>m===mm?r.roi:(n.months[m].open||n.months[m].roi==null)?null:n.months[m].roi*100);
+  const pctV=ms.map(m=>m===mm?r.patPct:(n.months[m].open||!n.months[m].rev)?null:n.months[m].pat/n.months[m].rev*100);
+  const trendBars=(label,vals,unit)=>{const mx=Math.max(...vals.filter(v=>v!=null).map(v=>Math.abs(v)),1);
+    return `<div class="tb"><div class="tbh">${label}</div><div class="trend">${ms.map((m,i)=>{const v=vals[i];return `<span class="${m===mm?"on":v==null?"open":""}" style="height:${v==null?0:Math.max(v,0)/mx*100}%" title="${mLbl(m)}: ${v==null?"chưa chốt":fmt(v,2)+unit}"></span>`}).join("")}</div>`+
+    `<div class="trendlbl">${vals.map(v=>`<i>${v==null?"–":fmt(v,1)}</i>`).join("")}</div></div>`};
   const Sg=suggestions(r);
   const chk=act.open?`${mLbl(mm)} chưa có số chốt trên PnL Detail, đây là số dự phóng từ SO và giá bán.`:
     (Math.abs(r.pat-act.pat)<Math.max(1000,Math.abs(act.pat)*.0005)?`✓ Khớp PnL Detail ${mLbl(mm)}: PAT ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%.`:`Chênh so với thực tế ${mLbl(mm)}: PAT ${r.pat-act.pat>0?"+":""}${M(r.pat-act.pat)} tr (thực tế ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%).`);
@@ -187,6 +193,10 @@ function render(r){
   </div>
   <div class="block"><h3>PAT/thùng theo tháng · ${n.code}</h3>
     <div class="trend">${ms.map((m,i)=>{const v=m===mm?pc(r.pat,V):vals[i];return `<span class="${m===mm?"on":vals[i]==null?"open":""}" style="height:${Math.max(v||0,0)/mx*100}%" title="${mLbl(m)}: ${fmt(v)} đ"></span>`}).join("")}</div>
+    <div class="trendlbl">${ms.map(m=>`<i>T${+m.slice(5)}</i>`).join("")}</div></div>
+  <div class="block"><h3>Xu hướng theo tháng · ${n.code}</h3>
+    ${trendBars("ROI %/tháng",roiV,"%")}
+    ${trendBars("PAT % doanh thu",pctV,"%")}
     <div class="trendlbl">${ms.map(m=>`<i>T${+m.slice(5)}</i>`).join("")}</div></div>
   <div class="block"><h3>Front margin vs Back margin</h3>
     <div class="margin">
