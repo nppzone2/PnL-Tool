@@ -2,6 +2,7 @@
 // rồi mã hoá lại toàn bộ code + dữ liệu bằng một khoá ngẫu nhiên (CK).
 // CK được "bọc" riêng cho Admin (ADMIN_PASSWORD) và cho từng NPP (NPP_PASSWORD dùng chung, tên đăng nhập là DisID).
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { webcrypto as crypto } from "node:crypto";
 import { sha256Hex } from "./lib.mjs";
 
@@ -33,10 +34,18 @@ try {
 const [style, body, app, shell] = await Promise.all(
   ["src/style.html", "src/body.html", "src/app.js", "src/shell.html"].map((f) => readFile(f, "utf8")));
 
+// 1b. Sổ TSCĐ để tính khấu hao (src/fa.enc, mã hoá bằng cùng DATA_KEY); chưa có thì để rỗng
+let faJson = "[]";
+if (existsSync("src/fa.enc")) {
+  const fs = JSON.parse(await readFile("src/fa.enc", "utf8"));
+  const kf = await aesKey(unb64(DATA_KEY), ["decrypt"]);
+  faJson = dec.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(fs.iv) }, kf, unb64(fs.ct)));
+}
+
 // 2. Mã hoá payload (dữ liệu + app) bằng CK
 const ck = crypto.getRandomValues(new Uint8Array(32));
 const iv = crypto.getRandomValues(new Uint8Array(12));
-const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
+const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst FA_DATA=" + faJson + ";\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
 
 // 3. Bọc CK theo từng quyền
 async function wrap(pw, role, user) {

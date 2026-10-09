@@ -29,6 +29,16 @@ table.dt tr.miss td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 table.dt td.hot,span.hot{background:var(--red-soft);color:var(--red);font-weight:800}
 table.dt tr.hotrow td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 input.v.lowp{background:var(--red-soft);color:var(--red);font-weight:800;border-color:var(--red)}
+.dep-bar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin:0 0 14px}
+.dep-head h2{margin:0 0 4px;font-size:20px}
+.dep-filter{display:flex;gap:10px;flex-wrap:wrap}
+.dep-filter[hidden]{display:none!important}
+.dep-filter label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:grid;gap:4px}
+.dep-filter select{min-width:200px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:600}
+.dep-stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1100px){.dep-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+table.dt tr.dimrow td{color:var(--muted)}
+p.conclusion-line{margin:12px 0 0;padding:12px 14px;border-radius:12px;background:var(--green-soft);color:var(--green-deep);font-weight:600}
 input.v.warnp{background:var(--orange-soft);color:var(--orange);font-weight:800;border-color:var(--orange)}
 .fin-kpi .l3{font-size:.62em;opacity:.65;font-weight:700;margin-left:1px}
 input.v.buy{background:var(--surface);border-color:var(--line)}
@@ -132,6 +142,7 @@ details.autosec[hidden]{display:none!important}
     <button role="tab" data-tab="pl" aria-selected="true">P&amp;L</button>
     <button role="tab" data-tab="price" aria-selected="false">Giá bán</button>
     <button role="tab" data-tab="ops" aria-selected="false">Chi phí vận hành</button>
+    <button role="tab" data-tab="dep" aria-selected="false">Khấu hao</button>
     <button role="tab" data-tab="sub" aria-selected="false">Ghi nhận HT<span class="cnt" id="subCnt" hidden></span></button>
     <button role="tab" data-tab="verify" aria-selected="false">Verify data<span class="cnt" id="cmpCnt" hidden></span></button>
     <button role="tab" data-tab="gis" aria-selected="false">GIS Input</button>
@@ -208,6 +219,18 @@ details.autosec[hidden]{display:none!important}
   </section>
 
   <!-- GIS input -->
+  <!-- Khấu hao -->
+  <section class="tabpane" id="tab-dep" hidden>
+    <div class="dep-bar">
+      <div class="dep-head"><h2 id="depTitle">Khấu hao</h2><span class="muted">Tính theo sổ TSCĐ, dùng cho khấu hao và tài sản còn lại ở tab P&amp;L</span></div>
+      <div class="dep-filter" id="depFilter" hidden>
+        <label>Khu vực<select id="depZone"></select></label>
+        <label>Nhà phân phối<select id="depNpp"></select></label>
+      </div>
+    </div>
+    <div id="depOut"></div>
+  </section>
+
   <section class="tabpane" id="tab-sub" hidden>
     <div class="card">
       <h2>Ghi nhận HT</h2>

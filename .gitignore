@@ -1,3 +1,4 @@
 dist/
 *.plain.js
 node_modules/
+*.csv
