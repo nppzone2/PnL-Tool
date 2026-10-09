@@ -6,7 +6,8 @@
 <meta name="robots" content="noindex, nofollow">
 {{STYLE}}
 <style>
-#gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;position:relative;overflow:hidden;color:#fff;font-family:"Be Vietnam Pro",system-ui,sans-serif;background:radial-gradient(70% 60% at 85% 0%,rgba(0,200,90,.45),transparent 70%),radial-gradient(60% 60% at 0% 100%,rgba(216,30,44,.28),transparent 70%),linear-gradient(160deg,#0f6b3a 0%,#0b4f2a 50%,#06331b 100%)}
+#gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;position:relative;overflow:hidden;color:#fff;font-family:"Be Vietnam Pro",system-ui,sans-serif;background:radial-gradient(70% 60% at 85% 0%,rgba(0,200,90,.4),transparent 70%),radial-gradient(60% 60% at 0% 100%,rgba(216,30,44,.2),transparent 70%),linear-gradient(160deg,#2a8f57 0%,#1f7a48 50%,#145c35 100%)}
+#gate>.coins{position:absolute;z-index:0}
 #gate::before{content:"";position:absolute;inset:0;background:var(--art) center/cover no-repeat;opacity:.9;pointer-events:none}
 #gate::after{content:"";position:absolute;left:-10%;right:-10%;bottom:-120px;height:260px;background:linear-gradient(0deg,rgba(0,0,0,.35),transparent);pointer-events:none}
 #gate .card{position:relative;z-index:1}
@@ -29,8 +30,8 @@
 </head>
 <body>
 <div id="gate">
+  <div class="coins" aria-hidden="true"><i>₫</i><i>$</i><i>€</i><i>¥</i><i>£</i></div>
   <form class="card" id="gateForm" autocomplete="off">
-    <div class="star"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7.1L12 17.3 5.8 21l1.6-7.1L2 9.2l7.1-.6z"/></svg></div>
     <h1>Distributor P&amp;L Simulator</h1>
     <p>HVN · HCM Zone 2 &amp; 3. Nhập tên đăng nhập và mật khẩu được cấp để mở công cụ.</p>
     <label for="gateUser">Tên đăng nhập (Admin: admin · NPP: DisID)</label>

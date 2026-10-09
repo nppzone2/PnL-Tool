@@ -29,8 +29,16 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px
 .hero{background:var(--green-deep);color:#fff;border-radius:14px;padding:22px 22px 20px;position:relative;overflow:hidden}
 .hero>*{position:relative;z-index:1}
 .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 90% at 90% 0%,rgba(0,200,90,.35),transparent 70%),radial-gradient(40% 80% at 0% 100%,rgba(216,30,44,.18),transparent 70%),var(--art) center/cover no-repeat;pointer-events:none}
-.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;
-  background:radial-gradient(circle,rgba(216,30,44,.55) 0 22%,transparent 23%);opacity:.9}
+.coins{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.coins i{position:absolute;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:21px;color:rgba(255,255,255,.7);border:2px solid rgba(255,255,255,.28);background:rgba(255,255,255,.1);box-shadow:0 6px 16px rgba(0,0,0,.12);animation:coinFloat 8s ease-in-out infinite}
+.coins i:nth-child(1){top:14%;right:5%}
+.coins i:nth-child(2){top:58%;right:20%;width:34px;height:34px;font-size:16px;animation-delay:-2.5s}
+.coins i:nth-child(3){top:12%;right:33%;width:30px;height:30px;font-size:14px;animation-delay:-5s}
+.coins i:nth-child(4){bottom:8%;right:6%;width:38px;height:38px;font-size:17px;animation-delay:-1s}
+.coins i:nth-child(5){top:10px;left:46%;width:34px;height:34px;font-size:16px;animation-delay:-4s}
+@keyframes coinFloat{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-10px) rotate(6deg)}}
+@media (prefers-reduced-motion:reduce){.coins i{animation:none}}
+.hero>.coins{position:absolute;z-index:0}
 .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;font-weight:600}
 .hero h1{margin:6px 0 6px;font-size:clamp(22px,4vw,30px);font-weight:800;text-wrap:balance;letter-spacing:-.01em}
 .hero p{margin:0;max-width:62ch;opacity:.88}
