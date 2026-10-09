@@ -33,6 +33,15 @@ input.v.lowp{background:var(--red-soft);color:var(--red);font-weight:800;border-
 .dep-head h2{margin:0 0 4px;font-size:20px}
 .dep-filter{display:flex;gap:10px;flex-wrap:wrap}
 .dep-filter[hidden]{display:none!important}
+.dep-admin{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 14px}
+.dep-admin[hidden]{display:none!important}
+.dep-form{display:grid;grid-template-columns:2fr 1.4fr 1fr 1fr .6fr auto;gap:10px;align-items:end}
+.dep-form label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:grid;gap:4px;min-width:0}
+.dep-form input,.dep-form select{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:600;min-width:0;width:100%}
+.dep-save{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.dep-save button.primary{flex:0 0 auto;min-width:0}
+button.linkdel{padding:4px 8px;font-size:12px;color:var(--red);background:none;border:0}
+@media(max-width:900px){.dep-form{grid-template-columns:1fr 1fr}}
 .dep-filter label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:grid;gap:4px}
 .dep-filter select{min-width:200px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-weight:600}
 .dep-stats{grid-template-columns:repeat(5,minmax(0,1fr))}
@@ -227,6 +236,17 @@ details.autosec[hidden]{display:none!important}
         <label>Khu vực<select id="depZone"></select></label>
         <label>Nhà phân phối<select id="depNpp"></select></label>
       </div>
+    </div>
+    <div class="dep-admin" id="depAdmin" hidden>
+      <div class="dep-form">
+        <label>Tên TSCĐ<input id="faName" type="text" placeholder="VD: Xe nâng thuê tài chính HĐ 12 tháng"></label>
+        <label>Loại TSCĐ<select id="faCat"><option>Xe nâng</option><option>Phương tiện vận tải / xe 3 bánh</option><option>Thiết bị văn phòng</option></select></label>
+        <label>Nguyên giá (đ)<input id="faCost" type="number" min="0" step="1000"></label>
+        <label>Ngày bắt đầu<input id="faDate" type="date"></label>
+        <label>Số tháng KH<input id="faLife" type="number" min="1" max="240" value="60"></label>
+        <button type="button" id="faAdd">Thêm dòng</button>
+      </div>
+      <div class="dep-save"><span id="faMsg" class="muted"></span><button type="button" class="primary" id="faSave" disabled>Lưu sổ TSCĐ</button></div>
     </div>
     <div id="depOut"></div>
   </section>
