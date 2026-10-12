@@ -547,7 +547,7 @@ const OPS_UI=[
   {id:"wh",t:"Phí thuê kho",f:[["whArea","Diện tích (m²)"],["whPrice","Đơn giá (đ/m²)"]],tot:o=>o.whArea*o.whPrice,ref:m=>m.hireWh},
   {id:"drv",t:"Lương thưởng tài xế",f:[["drvN","Số người"],["drvBase","Lương căn bản"],["drvAllow","Phụ cấp"],["drvBonus","Thưởng"]],tot:o=>o.drvN*((o.drvBase||0)+(o.drvAllow||0)+(o.drvBonus||0)),ref:m=>m.driver,refNote:"Đơn vị: VND"},
   {id:"asst",t:"Lương thưởng phụ xế",f:[["asstN","Số người"],["asstBase","Lương căn bản"],["asstAllow","Phụ cấp"],["asstBonus","Thưởng"]],tot:o=>o.asstN*((o.asstBase||0)+(o.asstAllow||0)+(o.asstBonus||0)),ref:()=>null,opt:true,refNote:"Đơn vị: VND"},
-  {id:"acctWh",t:"Lương nhân viên Kế toán, Thủ kho",f:[["acctWh","Tổng lương (VND)"]],tot:o=>o.acctWh,ref:()=>null,refNote:"Đơn vị: VND"},
+  {id:"acctWh",t:"Lương nhân viên Kế toán, Thủ kho",f:[["acctN","Số người"],["acctBase","Lương căn bản"],["acctAllow","Phụ cấp"],["acctBonus","Thưởng"]],tot:o=>o.acctN*((o.acctBase||0)+(o.acctAllow||0)+(o.acctBonus||0)),ref:()=>null,refNote:"Đơn vị: VND"},
   {id:"salMgr",t:"Lương nhân viên Quản lý",f:[["salMgr","Tổng lương (VND)"]],tot:o=>o.salMgr,ref:()=>null,refNote:"Đơn vị: VND"},
   {id:"promo",t:"Chi phí thúc đẩy bán ra",refNote:"Chi phí dùng để làm chương trình bán hàng (ví dụ: chương trình cho SKU slow moving, chương trình cho mùa thấp điểm…)",f:[["promo","Chi phí (VND)"]],tot:o=>o.promo,ref:m=>(m.mkWs||0)+(m.mkRt||0)+(m.mkOt||0)},
   {id:"credit",t:"Công nợ thị trường",f:[["credit","Số dư công nợ (VND)"]],tot:o=>o.credit,ref:m=>m.credit,req:true}];
@@ -557,8 +557,8 @@ function opsTotal(u){const t=opsRaw(u);return t==null?null:u.req?t:t*opsShare(u)
 const creditOk=()=>{const c=OPV("credit");return c!=null&&c>CREDIT_MIN};
 function opsMissing(){const o=S.ops[okey()]||{};return OPS_UI.filter(u=>!u.opt&&opsTotal(u)==null).map(u=>u.t)}
 
-const OP_SLOT={"acctWh":"t","salMgr":"t","petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
-const OP_PH={whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
+const OP_SLOT={"acctN":"q","acctBase":"p","acctAllow":"a","acctBonus":"b","salMgr":"t","petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
+const OP_PH={whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",acctN:"người",acctBase:"VND",acctAllow:"VND",acctBonus:"VND",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
 OPS_UI.forEach(u=>{OP_PH[u.id+"_sh"]="%"});
 function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vol:0,SV=soTotal()||V;
   if(!isOpen()){$("#opsOut").innerHTML=`<p class="lead">${mLbl(m)} đã chốt trên PnL Detail. Chọn tháng cần làm P&amp;L (M-1) để nhập chi phí vận hành.</p>`;return}
@@ -611,7 +611,7 @@ function applyOps(){const open=isOpen();
   const dRaw=opsRaw(OPS_UI[4]),aRaw=opsRaw(OPS_UI[5])||0,heads=(o.drvN||0)+(o.asstN||0);
   const daRaw=(dRaw||0)+aRaw,dShare=daRaw?((dRaw||0)*shu(4)+aRaw*shu(5))/daRaw:100;
   put("driver",heads||null,fd!=null?fd:dRaw!=null?daRaw:null,dShare);
-  put("acctWh",o.acctWh!=null?1:null,o.acctWh,opsShare(OPS_UI.find(u=>u.id==="acctWh")));put("salMgr",o.salMgr!=null?1:null,o.salMgr,opsShare(OPS_UI.find(u=>u.id==="salMgr")));
+  const acU=OPS_UI.find(u=>u.id==="acctWh"),acRaw=opsRaw(acU);put("acctWh",o.acctN||null,acRaw,opsShare(acU));put("salMgr",o.salMgr!=null?1:null,o.salMgr,opsShare(OPS_UI.find(u=>u.id==="salMgr")));
   set("mkWs_v",o.promo!=null?o.promo*opsShare(OPS_UI.find(u=>u.id==="promo"))/100:"");set("mkRt_v","");set("mkOt_v","");["mkWs_p","mkRt_p","mkOt_p"].forEach(id=>set(id,""));
   set("credit",o.credit??"");}
 
