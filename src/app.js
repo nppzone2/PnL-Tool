@@ -138,7 +138,7 @@ function calc(){
   if(soMode){const r=soRevenue();V=r.V;rev=r.rev}else{V=val("totVol");rev=V*val("totSell")}
   cogs=V*val("totBuy");
   const disc=V*val("discWs"),gc=rev-cogs-disc,g={wh:0,tr:0,mg:0,mk:0,cap:0};
-  OPS.forEach(o=>{const sh=isBlank(o[0]+"_s")?100:val(o[0]+"_s"),q=["driver","whKeeper","petro","bike"].includes(o[0])?1:val(o[0]+"_q");g[o[3]]+=q*val(o[0]+"_v")*sh/100});
+  OPS.forEach(o=>{const sh=isBlank(o[0]+"_s")?100:val(o[0]+"_s"),q=["driver","whKeeper","dsm","petro","bike"].includes(o[0])?1:val(o[0]+"_q");g[o[3]]+=q*val(o[0]+"_v")*sh/100});
   MKS.forEach(o=>{const v=val(o[0]+"_v"),p=val(o[0]+"_p");g[o[3]]+=o[3]==="mk"?v+rev*p/100:(p?v*p/100:v)});
   const opex=g.wh+g.tr+g.mg+g.mk+g.cap,oi=val("cdAmt")+val("cdInt")+val("dip")+val("oiOther");
   const D=daysIn(mon()),amt=siAmount(cur().id,mon());const base=amt==null?null:amt*($("#siVat").checked?1.1:1);let autoInfo={amt,base,D};
@@ -547,6 +547,7 @@ const OPS_UI=[
   {id:"wh",t:"Phí thuê kho",f:[["whArea","Diện tích (m²)"],["whPrice","Đơn giá (đ/m²)"]],tot:o=>o.whArea*o.whPrice,ref:m=>m.hireWh},
   {id:"drv",t:"Lương thưởng tài xế",f:[["drvN","Số người"],["drvBase","Lương căn bản"],["drvAllow","Phụ cấp"],["drvBonus","Thưởng"]],tot:o=>o.drvN*((o.drvBase||0)+(o.drvAllow||0)+(o.drvBonus||0)),ref:m=>m.driver,refNote:"Đơn vị: VND"},
   {id:"asst",t:"Lương thưởng phụ xế",f:[["asstN","Số người"],["asstBase","Lương căn bản"],["asstAllow","Phụ cấp"],["asstBonus","Thưởng"]],tot:o=>o.asstN*((o.asstBase||0)+(o.asstAllow||0)+(o.asstBonus||0)),ref:()=>null,opt:true,refNote:"Đơn vị: VND"},
+  {id:"dsm",t:"Lương nhân viên DSM",f:[["dsmN","Số người"],["dsmBase","Lương căn bản"],["dsmAllow","Phụ cấp"],["dsmBonus","Thưởng"]],tot:o=>o.dsmN*((o.dsmBase||0)+(o.dsmAllow||0)+(o.dsmBonus||0)),ref:m=>m.dsm,refNote:"Đơn vị: VND"},
   {id:"whKeeper",t:"Lương nhân viên Kế toán, Thủ kho",f:[["acctN","Số người"],["acctBase","Lương căn bản"],["acctAllow","Phụ cấp"],["acctBonus","Thưởng"]],tot:o=>o.acctN*((o.acctBase||0)+(o.acctAllow||0)+(o.acctBonus||0)),ref:m=>m.whKeeper,refNote:"Đơn vị: VND"},
   {id:"mgmt",t:"Lương nhân viên Quản lý",f:[["mgmt","Tổng lương (VND)"]],tot:o=>o.mgmt,ref:m=>m.mgmt,refNote:"Đơn vị: VND"},
   {id:"office",t:"Chi phí điện, nước, văn phòng phẩm",f:[["office","Tổng tiền (VND)"]],tot:o=>o.office,ref:m=>m.office,refNote:"Đơn vị: VND"},
@@ -559,8 +560,8 @@ function opsTotal(u){const t=opsRaw(u);return t==null?null:u.req?t:t*opsShare(u)
 const creditOk=()=>{const c=OPV("credit");return c!=null&&c>CREDIT_MIN};
 function opsMissing(){const o=S.ops[okey()]||{};return OPS_UI.filter(u=>!u.opt&&opsTotal(u)==null).map(u=>u.t)}
 
-const OP_SLOT={"petroN":"q","bikeN":"q","acctN":"q","acctBase":"p","acctAllow":"a","acctBonus":"b","mgmt":"t","office":"t","otherFee":"t","petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
-const OP_PH={petroN:"xe",bikeN:"xe",whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",acctN:"người",acctBase:"VND",acctAllow:"VND",acctBonus:"VND",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
+const OP_SLOT={"dsmN":"q","dsmBase":"p","dsmAllow":"a","dsmBonus":"b","petroN":"q","bikeN":"q","acctN":"q","acctBase":"p","acctAllow":"a","acctBonus":"b","mgmt":"t","office":"t","otherFee":"t","petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
+const OP_PH={dsmN:"người",dsmBase:"VND",dsmAllow:"VND",dsmBonus:"VND",petroN:"xe",bikeN:"xe",whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",acctN:"người",acctBase:"VND",acctAllow:"VND",acctBonus:"VND",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
 OPS_UI.forEach(u=>{OP_PH[u.id+"_sh"]="%"});
 function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vol:0,SV=soTotal()||V;
   if(!isOpen()){$("#opsOut").innerHTML=`<p class="lead">${mLbl(m)} đã chốt trên PnL Detail. Chọn tháng cần làm P&amp;L (M-1) để nhập chi phí vận hành.</p>`;return}
@@ -576,7 +577,10 @@ function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vo
       <td>${u.req?'<span class="muted">–</span>':inp(u.id+"_sh")}</td>
       <td>${totIsInput?inp(cell.t,bad):`<b>${t!=null?fmt(t):'<span class="muted">chưa đủ</span>'}</b>`}${t!=null&&!u.req&&SV?`<small class="muted">${fmt(t/SV)} đ/thùng</small>`:""}</td>
       <td>${rv!=null?fmt(rv):"–"}${rv&&!u.req&&V?`<small class="muted">${fmt(rv/V)} đ/thùng</small>`:""}</td>
-      <td>${d!=null?`<span class="${Math.abs(d)/rv>.1?"d-dn":""}">${d>0?"+":""}${fmt(d/rv*100,1)}%</span>${u.id==="drv"?'<small class="muted">gồm phụ xế</small>':""}`:"–"}</td></tr>`}).join("")}</tbody></table></div>
+      <td>${d!=null?`<span class="${Math.abs(d)/rv>.1?"d-dn":""}">${d>0?"+":""}${fmt(d/rv*100,1)}%</span>${u.id==="drv"?'<small class="muted">gồm phụ xế</small>':""}`:"–"}</td></tr>`}).join("")}</tbody>
+  <tfoot>${(()=>{const cs=OPS_UI.filter(u=>u.id!=="credit"),pre=cs.reduce((a,u)=>a+(opsRaw(u)||0),0),post=cs.reduce((a,u)=>a+(opsTotal(u)||0),0),nm=cs.filter(u=>opsTotal(u)==null).length,note=nm?` <small class="muted">(${nm} mục chưa nhập)</small>`:"";
+    return `<tr class="sumrow"><td class="l" colspan="6"><b>Tổng chi phí trước share</b>${note}</td><td><b>${fmt(pre)}</b></td><td colspan="2"></td></tr>
+    <tr class="sumrow"><td class="l" colspan="6"><b>Tổng chi phí sau share</b></td><td><b>${fmt(post)}</b></td><td colspan="2"></td></tr>`})()}</tfoot></table></div>
 `;
   const miss=opsMissing();$("#opsMsg").innerHTML=!creditOk()?(OPV("credit")==null?"":`<span class="errtxt">Công nợ thị trường phải lớn hơn 100 triệu đồng.</span>`):miss.length?`<span class="muted">Còn thiếu: ${miss.join(", ")}.</span>`:`<span class="d-up">Đã nhập đủ. Bấm Hoàn tất để chuyển sang Verify data.</span>`;
   $("#opsSubmit").disabled=!creditOk();
@@ -594,7 +598,7 @@ $("#opsSubmit").addEventListener("click",async()=>{if(!creditOk()){renderOps();$
   finally{btn.textContent="Hoàn tất";refreshDerived()}});
 
 // push ops + verify finals into the P&L engine fields (open month only)
-const ENG_KEYS=["petro","bike","trOther","hireWh","driver","whKeeper","mgmt","office","otherFee"];
+const ENG_KEYS=["petro","bike","trOther","hireWh","driver","whKeeper","dsm","mgmt","office","otherFee"];
 S.gshare=LS.get("gshare",{});
 function applyShares(){const g=S.gshare[okey()]||{};for(const k in g)if(!OPS_SHARED.has(k))set(k+"_s",g[k])}
 $("#gisT").addEventListener("change",e=>{const k=e.target.dataset.gshare;if(!k)return;const key=okey();
@@ -615,6 +619,7 @@ function applyOps(){const open=isOpen();
   put("driver",heads||null,fd!=null?fd:dRaw!=null?daRaw:null,dShare);
   const acU=OPS_UI.find(u=>u.id==="whKeeper"),mgU=OPS_UI.find(u=>u.id==="mgmt"),ofU=OPS_UI.find(u=>u.id==="office"),ocU=OPS_UI.find(u=>u.id==="otherFee");
   const pt=(k,u,q)=>{const raw=opsRaw(u);put(k,raw!=null?q:null,raw,opsShare(u))};
+  pt("dsm",OPS_UI.find(u=>u.id==="dsm"),o.dsmN);
   pt("whKeeper",acU,o.acctN);pt("mgmt",mgU,1);pt("office",ofU,1);pt("otherFee",ocU,1);
   set("mkWs_v",o.promo!=null?o.promo*opsShare(OPS_UI.find(u=>u.id==="promo"))/100:"");set("mkRt_v","");set("mkOt_v","");["mkWs_p","mkRt_p","mkOt_p"].forEach(id=>set(id,""));
   set("credit",o.credit??"");}
