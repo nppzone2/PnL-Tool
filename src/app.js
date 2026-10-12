@@ -7,12 +7,12 @@ const SKU_NAME=Object.assign({},EXTRA_NAMES,Object.fromEntries(GIS_SKUS));
 const ON_FORM=new Set(GIS_SKUS.map(s=>s[0]));
 const DEFAULT_CHAN={"Grocery Store":"OFF","Sub Distributor":"SDIS","Wholesaler":"OFF","Quan Nhau Mainstream":"ON","Grocery Store - Home Delivery":"OFF","Beverage Retail Store":"OFF","Group Social":"ON","Quan Nhau Top":"ON","Quan An":"ON","Quan Nhau Economy":"ON","Food Caterer":"ON","Independent Minimart":"OFF","Beer Café":"OFF","Quan Nhau":"ON"};
 const CH=["SDIS","OFF","ON"];
-const OPS=[["depTruck","Depreciation truck/3 wheels","Khấu hao xe tải, 3 bánh","tr"],["depFork","Depreciation Forklift","Khấu hao xe nâng","wh"],["depTools","Depreciation/Tools","Khấu hao thiết bị văn phòng","mg"],["petro","Transport Petro fees (truck)","Phí xăng dầu xe tải, 3 bánh","tr"],["bike","Transport fees (Bike)","Phí giao hàng xe máy","tr"],["trOther","Transporation other fee","Chi phí khác cho giao hàng","tr"],["hireWh","Hiring Warehouse","Thuê kho (m² × chi phí/m²)","wh"],["driver","Delivery & Driver","Tài xế & giao hàng (Qty = số người, VND = tổng tiền)","tr"],["whKeeper","WH Keeper, FLT driver & Accountant","Thủ kho, tài xế FL, kế toán","mg"],["dsm","DSM cost","Nhân viên DSM","mg"],["mgmt","Management cost","Nhân viên quản lý","mg"],["office","Office expenses","Điện / nước / văn phòng phẩm","mg"],["otherFee","Other fees","Chi phí phát sinh, giao tế…","mg"]];
+const OPS=[["depTruck","Depreciation truck/3 wheels","Khấu hao xe tải, 3 bánh","tr"],["depFork","Depreciation Forklift","Khấu hao xe nâng","wh"],["depTools","Depreciation/Tools","Khấu hao thiết bị văn phòng","mg"],["petro","Transport Petro fees (truck)","Phí xăng dầu xe tải, 3 bánh","tr"],["bike","Transport fees (Bike)","Phí giao hàng xe máy","tr"],["trOther","Transporation other fee","Chi phí khác cho giao hàng","tr"],["hireWh","Hiring Warehouse","Thuê kho (m² × chi phí/m²)","wh"],["driver","Delivery & Driver","Tài xế & giao hàng (Qty = số người, VND = tổng tiền)","tr"],["whKeeper","WH Keeper, FLT driver & Accountant","Thủ kho, tài xế FL, kế toán","mg"],["acctWh","Salary accountant & WH keeper","Lương nhân viên Kế toán, Thủ kho","mg"],["salMgr","Salary management staff","Lương nhân viên Quản lý","mg"],["dsm","DSM cost","Nhân viên DSM","mg"],["mgmt","Management cost","Nhân viên quản lý","mg"],["office","Office expenses","Điện / nước / văn phòng phẩm","mg"],["otherFee","Other fees","Chi phí phát sinh, giao tế…","mg"]];
 const MKS=[["mkWs","Wholesales","Chiết khấu khách hàng sỉ","mk"],["mkRt","Retailers","Chiết khấu khách hàng lẻ","mk"],["mkOt","Others","CK bán hàng khác / chương trình","mk"],["capInt","Interest expenses","Lãi vay (số tiền & % lãi suất/tháng)","cap"],["capBad","Bad debt provision","Dự phòng nợ xấu","cap"],["capOt","Others","Chi phí vốn khác","cap"]];
 const OIS=[["cdAmt","CD Amount","Hệ thống HVN","Detail"],["cdInt","CD Interest","Hệ thống HVN","Detail"],["dip","DIP Amount","Hệ thống HVN","Detail"],["oiOther","Other (Increase price/Promotion)","Thu nhập từ tăng giá, KM","GIS"],["cit","Income Tax (CIT) %","Thuế thu nhập DN","GIS"]];
 const ICS=[["curAcc","Current account","Tài khoản thanh toán","GIS"],["credit","Credit for Outlets","Công nợ thị trường","GIS"],["fixed","Remaining value fixed assets","Giá trị TS còn lại theo tỉ trọng","Detail"],["inv","Inventory","Tồn kho","Detail"],["cdHold","CD hold","Hệ thống HVN","Detail"],["deposit","Cash deposit & DMF","Hệ thống HVN","Detail"]];
 const GRP={wh:"Warehouse",tr:"Transportation",mg:"Management",mk:"Market investment",cap:"Capital cost"};
-const GRPKEYS={wh:["hireWh","depFork"],tr:["depTruck","petro","bike","trOther","driver"],mg:["whKeeper","dsm","mgmt","office","otherFee","depTools"],mk:["mkWs","mkRt","mkOt"],cap:["capInt","capBad","capOt"]};
+const GRPKEYS={wh:["hireWh","depFork"],tr:["depTruck","petro","bike","trOther","driver"],mg:["whKeeper","acctWh","salMgr","dsm","mgmt","office","otherFee","depTools"],mk:["mkWs","mkRt","mkOt"],cap:["capInt","capBad","capOt"]};
 
 const $=s=>document.querySelector(s);
 const fmt=(n,d=0)=>(n!=null&&isFinite(n))?n.toLocaleString("vi-VN",{maximumFractionDigits:d,minimumFractionDigits:d}):"–";
@@ -296,7 +296,7 @@ $("#clearPrice").onclick=()=>{delete S.prices[pkey()];LS.set("prices",S.prices);
 function gisRows(){const n=cur(),so=soFor(n.id,mon());
   return skuList(so,true).filter(s=>ON_FORM.has(s)||(so&&so[s])).map(sku=>{const ws=typed(sku,"SDIS"),b=retailBlend(sku,so),r=so&&so[sku]||{};
     return {sku,name:`${sku} - ${SKU_NAME[sku]||""}`,ws:finPrice(sku,"ws")??ws,rt:finPrice(sku,"rt")??rt1k(b.v),share:b.share,vol:(r.SDIS||0)+(r.OFF||0)+(r.ON||0)}})}
-const GIS_OPS=[["Total Depreciation / Tổng khấu hao",["depTruck","depFork","depTools"]],["Total Transportation - Tổng CP vận chuyển",["petro","bike","trOther"]],["Total management cost - Chi phí nhân sự",["hireWh","driver","whKeeper","dsm","mgmt","office","otherFee"]]];
+const GIS_OPS=[["Total Depreciation / Tổng khấu hao",["depTruck","depFork","depTools"]],["Total Transportation - Tổng CP vận chuyển",["petro","bike","trOther"]],["Total management cost - Chi phí nhân sự",["hireWh","driver","whKeeper","acctWh","salMgr","dsm","mgmt","office","otherFee"]]];
 const OPS_SHARED=new Set(["petro","bike","trOther","hireWh","driver"]),OPS_SHARE_ID={petro:"petro",bike:"bike",trOther:"rent",hireWh:"wh",driver:"drv"};
 const GIS_MK=[["Total market investment - Chi phí đầu tư thị trường",["mkWs","mkRt","mkOt"]],["Capital cost - Chi phí vốn",["capInt","capBad","capOt"]]];
 const opName=k=>{const o=OPS.find(x=>x[0]===k)||MKS.find(x=>x[0]===k);return `${o[1]} - ${o[2]}`};
@@ -547,6 +547,8 @@ const OPS_UI=[
   {id:"wh",t:"Phí thuê kho",f:[["whArea","Diện tích (m²)"],["whPrice","Đơn giá (đ/m²)"]],tot:o=>o.whArea*o.whPrice,ref:m=>m.hireWh},
   {id:"drv",t:"Lương thưởng tài xế",f:[["drvN","Số người"],["drvBase","Lương căn bản"],["drvAllow","Phụ cấp"],["drvBonus","Thưởng"]],tot:o=>o.drvN*((o.drvBase||0)+(o.drvAllow||0)+(o.drvBonus||0)),ref:m=>m.driver,refNote:"Đơn vị: VND"},
   {id:"asst",t:"Lương thưởng phụ xế",f:[["asstN","Số người"],["asstBase","Lương căn bản"],["asstAllow","Phụ cấp"],["asstBonus","Thưởng"]],tot:o=>o.asstN*((o.asstBase||0)+(o.asstAllow||0)+(o.asstBonus||0)),ref:()=>null,opt:true,refNote:"Đơn vị: VND"},
+  {id:"acctWh",t:"Lương nhân viên Kế toán, Thủ kho",f:[["acctWh","Tổng lương (VND)"]],tot:o=>o.acctWh,ref:()=>null,refNote:"Đơn vị: VND"},
+  {id:"salMgr",t:"Lương nhân viên Quản lý",f:[["salMgr","Tổng lương (VND)"]],tot:o=>o.salMgr,ref:()=>null,refNote:"Đơn vị: VND"},
   {id:"promo",t:"Chi phí thúc đẩy bán ra",refNote:"Chi phí dùng để làm chương trình bán hàng (ví dụ: chương trình cho SKU slow moving, chương trình cho mùa thấp điểm…)",f:[["promo","Chi phí (VND)"]],tot:o=>o.promo,ref:m=>(m.mkWs||0)+(m.mkRt||0)+(m.mkOt||0)},
   {id:"credit",t:"Công nợ thị trường",f:[["credit","Số dư công nợ (VND)"]],tot:o=>o.credit,ref:m=>m.credit,req:true}];
 function opsRaw(u){const o=S.ops[okey()]||{};if(u.f.some(([k])=>o[k]==null||o[k]===""))return null;return u.tot(o)}
@@ -555,14 +557,16 @@ function opsTotal(u){const t=opsRaw(u);return t==null?null:u.req?t:t*opsShare(u)
 const creditOk=()=>{const c=OPV("credit");return c!=null&&c>CREDIT_MIN};
 function opsMissing(){const o=S.ops[okey()]||{};return OPS_UI.filter(u=>!u.opt&&opsTotal(u)==null).map(u=>u.t)}
 
-const OP_SLOT={"petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
+const OP_SLOT={"acctWh":"t","salMgr":"t","petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
 const OP_PH={whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
 OPS_UI.forEach(u=>{OP_PH[u.id+"_sh"]="%"});
 function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vol:0,SV=soTotal()||V;
   if(!isOpen()){$("#opsOut").innerHTML=`<p class="lead">${mLbl(m)} đã chốt trên PnL Detail. Chọn tháng cần làm P&amp;L (M-1) để nhập chi phí vận hành.</p>`;return}
   const inp=(k,bad)=>`<input class="v${bad?" lowp":""}" inputmode="decimal" data-op="${k}" value="${o[k]!=null&&o[k]!==""?fmt(o[k]):""}" placeholder="${OP_PH[k]||"VND"}">`;
   $("#opsOut").innerHTML=`<div class="scroll"><table class="dt ops"><thead><tr><th class="l">Hạng mục</th><th>Số lượng</th><th>Đơn giá / Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>%Share</th><th>Tổng tiền ${mLbl(m)}</th><th>Tham chiếu M-2</th><th>Chênh lệch</th></tr></thead><tbody>
-  ${OPS_UI.map(u=>{const t=opsTotal(u),rv=r?u.ref(r):null,bad=u.req&&!creditOk(),d=t!=null&&rv?t-rv:null,cell={};u.f.forEach(([k])=>cell[OP_SLOT[k]]=k);
+  ${OPS_UI.map(u=>{const t=opsTotal(u),rv=r?u.ref(r):null,bad=u.req&&!creditOk(),cell={};
+    // So sánh tài xế với PnL Detail gồm cả phụ xế (vẫn nhập tách hai dòng)
+    const tc=u.id==="drv"?(t!=null?t+(opsTotal(OPS_UI.find(x=>x.id==="asst"))||0):null):t,d=tc!=null&&rv?tc-rv:null;u.f.forEach(([k])=>cell[OP_SLOT[k]]=k);
     const totIsInput=!!cell.t&&u.req;
     const slot=c=>cell[c]?inp(cell[c]):(c==="p"&&cell.t&&!u.req?inp(cell.t):"");
     return `<tr class="${bad?"badrow":""}"><td class="l"><b>${u.t}</b>${u.req?'<span class="req" title="Bắt buộc nhập">*</span>':""}${u.refNote?`<small>${u.refNote}</small>`:""}</td>
@@ -570,7 +574,7 @@ function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vo
       <td>${u.req?'<span class="muted">–</span>':inp(u.id+"_sh")}</td>
       <td>${totIsInput?inp(cell.t,bad):`<b>${t!=null?fmt(t):'<span class="muted">chưa đủ</span>'}</b>`}${t!=null&&!u.req&&SV?`<small class="muted">${fmt(t/SV)} đ/thùng</small>`:""}</td>
       <td>${rv!=null?fmt(rv):"–"}${rv&&!u.req&&V?`<small class="muted">${fmt(rv/V)} đ/thùng</small>`:""}</td>
-      <td>${d!=null?`<span class="${Math.abs(d)/rv>.1?"d-dn":""}">${d>0?"+":""}${fmt(d/rv*100,1)}%</span>`:"–"}</td></tr>`}).join("")}</tbody></table></div>
+      <td>${d!=null?`<span class="${Math.abs(d)/rv>.1?"d-dn":""}">${d>0?"+":""}${fmt(d/rv*100,1)}%</span>${u.id==="drv"?'<small class="muted">gồm phụ xế</small>':""}`:"–"}</td></tr>`}).join("")}</tbody></table></div>
 `;
   const miss=opsMissing();$("#opsMsg").innerHTML=!creditOk()?(OPV("credit")==null?"":`<span class="errtxt">Công nợ thị trường phải lớn hơn 100 triệu đồng.</span>`):miss.length?`<span class="muted">Còn thiếu: ${miss.join(", ")}.</span>`:`<span class="d-up">Đã nhập đủ. Bấm Hoàn tất để chuyển sang Verify data.</span>`;
   $("#opsSubmit").disabled=!creditOk();
@@ -588,7 +592,7 @@ $("#opsSubmit").addEventListener("click",async()=>{if(!creditOk()){renderOps();$
   finally{btn.textContent="Hoàn tất";refreshDerived()}});
 
 // push ops + verify finals into the P&L engine fields (open month only)
-const ENG_KEYS=["petro","bike","trOther","hireWh","driver"];
+const ENG_KEYS=["petro","bike","trOther","hireWh","driver","acctWh","salMgr"];
 S.gshare=LS.get("gshare",{});
 function applyShares(){const g=S.gshare[okey()]||{};for(const k in g)if(!OPS_SHARED.has(k))set(k+"_s",g[k])}
 $("#gisT").addEventListener("change",e=>{const k=e.target.dataset.gshare;if(!k)return;const key=okey();
@@ -607,7 +611,8 @@ function applyOps(){const open=isOpen();
   const dRaw=opsRaw(OPS_UI[4]),aRaw=opsRaw(OPS_UI[5])||0,heads=(o.drvN||0)+(o.asstN||0);
   const daRaw=(dRaw||0)+aRaw,dShare=daRaw?((dRaw||0)*shu(4)+aRaw*shu(5))/daRaw:100;
   put("driver",heads||null,fd!=null?fd:dRaw!=null?daRaw:null,dShare);
-  set("mkWs_v",o.promo!=null?o.promo*shu(6)/100:"");set("mkRt_v","");set("mkOt_v","");["mkWs_p","mkRt_p","mkOt_p"].forEach(id=>set(id,""));
+  put("acctWh",o.acctWh!=null?1:null,o.acctWh,opsShare(OPS_UI.find(u=>u.id==="acctWh")));put("salMgr",o.salMgr!=null?1:null,o.salMgr,opsShare(OPS_UI.find(u=>u.id==="salMgr")));
+  set("mkWs_v",o.promo!=null?o.promo*opsShare(OPS_UI.find(u=>u.id==="promo"))/100:"");set("mkRt_v","");set("mkOt_v","");["mkWs_p","mkRt_p","mkOt_p"].forEach(id=>set(id,""));
   set("credit",o.credit??"");}
 
 // ---- Verify: fuel
