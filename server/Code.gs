@@ -5,6 +5,7 @@
  */
 const SHEET = 'Submissions';
 const LOG = 'Log';
+const HIST = 'Lịch sử'; // mỗi lần gửi là một dòng mới, không ghi đè: lưu đủ số liệu từng lần nộp
 const HEAD = ['Key', 'DisID', 'NPP', 'Khu vực', 'Tháng', 'Gửi lúc', 'Người gửi', 'Lần gửi',
   'Sản lượng (thùng)', 'Doanh thu', 'Chi phí vận hành', 'PAT', 'ROI (%)', 'Công nợ thị trường',
   'Xăng xe tải', 'Xăng xe máy', 'Thuê xe ngoài', 'Thuê kho', 'Lương tài xế', 'Lương phụ xế',
@@ -53,6 +54,7 @@ function submit_(s, role) {
       num_(sm.skus), payload];
     if (idx >= 0) sh.getRange(idx + 2, 1, 1, row.length).setValues([row]);
     else sh.appendRow(row);
+    sheet_(HIST, HEAD).appendRow(row);
     sheet_(LOG, ['Thời gian', 'Key', 'NPP', 'Tháng', 'Người gửi', 'Lần gửi', 'PAT', 'Công nợ'])
       .appendRow([now, s.key, s.code || '', "'" + s.month, role, n, num_(sm.pat), num_(sm.credit)]);
     return { ok: true, at: now.getTime(), n };
