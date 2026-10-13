@@ -151,7 +151,7 @@ function calc(){
   if(soMode){const r=soRevenue();V=r.V;rev=r.rev}else{V=val("totVol");rev=V*val("totSell")}
   cogs=V*val("totBuy");
   const disc=V*val("discWs"),gc=rev-cogs-disc,g={wh:0,tr:0,mg:0,mk:0,cap:0};
-  OPS.forEach(o=>{const sh=isBlank(o[0]+"_s")?100:val(o[0]+"_s"),q=["driver","whKeeper","dsm","petro","bike"].includes(o[0])?1:val(o[0]+"_q");g[o[3]]+=q*val(o[0]+"_v")*sh/100});
+  OPS.forEach(o=>{const sh=isBlank(o[0]+"_s")?100:val(o[0]+"_s"),q=["driver","whKeeper","dsm","mgmt","petro","bike"].includes(o[0])?1:val(o[0]+"_q");g[o[3]]+=q*val(o[0]+"_v")*sh/100});
   MKS.forEach(o=>{const v=val(o[0]+"_v"),p=val(o[0]+"_p");g[o[3]]+=o[3]==="mk"?v+rev*p/100:(p?v*p/100:v)});
   const opex=g.wh+g.tr+g.mg+g.mk+g.cap,oi=val("cdAmt")+val("cdInt")+val("dip")+val("oiOther");
   const D=daysIn(mon()),amt=siAmount(cur().id,mon());const base=amt==null?null:amt*($("#siVat").checked?1.1:1);let autoInfo={amt,base,D};
@@ -569,7 +569,7 @@ const OPS_UI=[
   {id:"asst",t:"Lương thưởng phụ xế",f:[["asstN","Số người"],["asstBase","Lương căn bản"],["asstAllow","Phụ cấp"],["asstBonus","Thưởng"]],tot:o=>o.asstN*((o.asstBase||0)+(o.asstAllow||0)+(o.asstBonus||0)),ref:()=>null,opt:true,refNote:"Đơn vị: VND"},
   {id:"dsm",t:"Lương nhân viên DSM",f:[["dsmN","Số người"],["dsmBase","Lương căn bản"],["dsmAllow","Phụ cấp"],["dsmBonus","Thưởng"]],tot:o=>o.dsmN*((o.dsmBase||0)+(o.dsmAllow||0)+(o.dsmBonus||0)),ref:m=>m.dsm,refNote:"Đơn vị: VND"},
   {id:"whKeeper",t:"Lương nhân viên Kế toán, Thủ kho",f:[["acctN","Số người"],["acctBase","Lương căn bản"],["acctAllow","Phụ cấp"],["acctBonus","Thưởng"]],tot:o=>o.acctN*((o.acctBase||0)+(o.acctAllow||0)+(o.acctBonus||0)),ref:m=>m.whKeeper,refNote:"Đơn vị: VND"},
-  {id:"mgmt",t:"Lương nhân viên Quản lý",f:[["mgmt","Tổng lương (VND)"]],tot:o=>o.mgmt,ref:m=>m.mgmt,refNote:"Đơn vị: VND"},
+  {id:"mgmt",t:"Lương nhân viên Quản lý",f:[["mgmtN","Số người"],["mgmtBase","Lương căn bản"],["mgmtAllow","Phụ cấp"],["mgmtBonus","Thưởng"]],tot:o=>o.mgmtN*((o.mgmtBase||0)+(o.mgmtAllow||0)+(o.mgmtBonus||0)),ref:m=>m.mgmt,refNote:"Đơn vị: VND"},
   {id:"office",t:"Chi phí điện, nước, văn phòng phẩm",f:[["office","Tổng tiền (VND)"]],tot:o=>o.office,ref:m=>m.office,refNote:"Đơn vị: VND"},
   {id:"otherFee",t:"Chi phí phát sinh khác, giao tế",f:[["otherFee","Tổng tiền (VND)"]],tot:o=>o.otherFee,ref:m=>m.otherFee,refNote:"Đơn vị: VND"},
   {id:"promo",t:"Chi phí thúc đẩy bán ra",refNote:"Chi phí dùng để làm chương trình bán hàng (ví dụ: chương trình cho SKU slow moving, chương trình cho mùa thấp điểm…)",f:[["promo","Chi phí (VND)"]],tot:o=>o.promo,ref:m=>(m.mkWs||0)+(m.mkRt||0)+(m.mkOt||0)},
@@ -584,8 +584,8 @@ function opsRawE(u){const o=effO();if(u.f.some(([k])=>o[k]==null||o[k]===""))ret
 const creditOk=()=>{const c=OPV("credit");return c!=null&&c>CREDIT_MIN};
 function opsMissing(){const o=S.ops[okey()]||{};return OPS_UI.filter(u=>!u.opt&&opsTotal(u)==null).map(u=>u.t)}
 
-const OP_SLOT={"dsmN":"q","dsmBase":"p","dsmAllow":"a","dsmBonus":"b","petroN":"q","bikeN":"q","acctN":"q","acctBase":"p","acctAllow":"a","acctBonus":"b","mgmt":"t","office":"t","otherFee":"t","petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
-const OP_PH={dsmN:"người",dsmBase:"VND",dsmAllow:"VND",dsmBonus:"VND",petroN:"xe",bikeN:"xe",whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",acctN:"người",acctBase:"VND",acctAllow:"VND",acctBonus:"VND",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
+const OP_SLOT={"dsmN":"q","dsmBase":"p","dsmAllow":"a","dsmBonus":"b","petroN":"q","bikeN":"q","acctN":"q","acctBase":"p","acctAllow":"a","acctBonus":"b","mgmtN":"q","mgmtBase":"p","mgmtAllow":"a","mgmtBonus":"b","office":"t","otherFee":"t","petroT": "t", "bikeT": "t", "rent": "t", "promo": "t", "credit": "t", "whArea": "q", "whPrice": "p", "drvN": "q", "drvBase": "p", "drvAllow": "a", "drvBonus": "b", "asstN": "q", "asstBase": "p", "asstAllow": "a", "asstBonus": "b"};
+const OP_PH={mgmtN:"người",mgmtBase:"VND",mgmtAllow:"VND",mgmtBonus:"VND",dsmN:"người",dsmBase:"VND",dsmAllow:"VND",dsmBonus:"VND",petroN:"xe",bikeN:"xe",whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",acctN:"người",acctBase:"VND",acctAllow:"VND",acctBonus:"VND",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
 OPS_UI.forEach(u=>{OP_PH[u.id+"_sh"]="%"});
 function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vol:0,SV=soTotal()||V;
   const closedNote=isOpen()?"":`<p class="lead">${mLbl(m)} đã chốt trên PnL Detail. Số nhập ở đây chỉ để đối chiếu, không thay đổi P&amp;L.</p>`;
@@ -643,8 +643,8 @@ function applyOps(){const open=isOpen();
   put("driver",heads||null,dRaw!=null?daRaw:null,dShare);
   const acU=OPS_UI.find(u=>u.id==="whKeeper"),mgU=OPS_UI.find(u=>u.id==="mgmt"),ofU=OPS_UI.find(u=>u.id==="office"),ocU=OPS_UI.find(u=>u.id==="otherFee");
   const pt=(k,u,q)=>{const raw=opsRawE(u);put(k,raw!=null?q:null,raw,opsShare(u))};
-  pt("dsm",OPS_UI.find(u=>u.id==="dsm"),o.dsmN);
-  pt("whKeeper",acU,o.acctN);pt("mgmt",mgU,1);pt("office",ofU,1);pt("otherFee",ocU,1);
+  pt("dsm",OPS_UI.find(u=>u.id==="dsm"),eo.dsmN);
+  pt("whKeeper",acU,eo.acctN);pt("mgmt",mgU,eo.mgmtN);pt("office",ofU,1);pt("otherFee",ocU,1);
   set("mkWs_v",o.promo!=null?o.promo*opsShare(OPS_UI.find(u=>u.id==="promo"))/100:"");set("mkRt_v","");set("mkOt_v","");["mkWs_p","mkRt_p","mkOt_p"].forEach(id=>set(id,""));
   set("credit",o.credit??"");}
 
@@ -674,6 +674,7 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   const eo=effO(),ov=ovOps(),tM=(tmsSum(m)||{})[n.id],tR=r?(tmsSum(addM(m,-1))||{})[n.id]:null,rD=r?r.driver:null;
   const rowT=p=>(eo[p+"N"]||0)*((eo[p+"Base"]||0)+(eo[p+"Allow"]||0)+(eo[p+"Bonus"]||0));
   const anyV=ks=>ks.some(k=>eo[k]!=null&&eo[k]!=="");
+  const dCell=(d,base)=>d==null||!base?"<td>–</td>":`<td style="text-align:right;white-space:nowrap"><div class="${Math.abs(d)/base>.1?"d-dn":""}">${d>0?"+":""}${fmt(d)}</div><small class="${Math.abs(d)/base>.1?"d-dn":"muted"}">${d>0?"+":""}${fmt(d/base*100,1)}%</small></td>`;
   const inpO=k=>`<input class="v" inputmode="decimal" data-ov="${k}" value="${ov[k]!=null?fmt(ov[k]):""}" placeholder="${o[k]!=null&&o[k]!==""?fmt(o[k]):"–"}" style="min-width:100px">`;
   const sRow=(lbl,p,u)=>{const ks=[p+"N",p+"Base",p+"Allow",p+"Bonus"],t=rowT(p),sh=opsShare(u),has=anyV(ks);
     return `<tr><td class="l"><b>${lbl}</b></td>${["N","Base","Allow","Bonus"].map(x=>`<td>${inpO(p+x)}</td>`).join("")}<td><b>${has?fmt(t):"–"}</b></td><td>${has?fmt(t*sh/100):"–"}</td><td>${has&&eo[p+"N"]?fmt(t/eo[p+"N"]):"–"}</td></tr>`};
@@ -684,20 +685,19 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
     ${sRow("Tài xế","drv",drvU)}${sRow("Phụ xế","asst",asU)}
     <tr class="sumrow"><td class="l"><b>Tổng ${mLbl(m)}</b></td><td>${heads?fmt(heads):"–"}</td><td colspan="3"></td><td><b>${anyS?fmt(preS):"–"}</b></td><td><b>${anyS?fmt(postS):"–"}</b></td><td>${anyS&&heads?fmt(preS/heads):"–"}</td></tr>
     <tr><td class="l"><b>${r?mLbl(addM(m,-1)):"M-2"} · PnL Detail</b><small>Delivery &amp; Driver</small></td><td>${tR?fmt(tR.drivers)+" <small class=\"muted\">TMS</small>":"–"}</td><td colspan="4"></td><td><b>${rD!=null?fmt(rD):"–"}</b></td><td>${rD&&tR&&tR.driverDays?fmt(rD/(tR.driverDays/26))+' <small class="muted">/FTE</small>':"–"}</td></tr>
-    <tr><td class="l"><b>Chênh lệch</b></td><td colspan="5"></td><td>${anyS&&rD?`<span class="${Math.abs(postS-rD)/rD>.1?"d-dn":""}">${postS-rD>0?"+":""}${fmt(postS-rD)} (${postS-rD>0?"+":""}${fmt((postS-rD)/rD*100,1)}%)</span>`:"–"}</td><td></td></tr>
+    <tr><td class="l"><b>Chênh lệch</b></td><td colspan="5"></td>${anyS?dCell(postS-rD,rD):"<td>–</td>"}<td></td></tr>
   </tbody></table></div>
   <p class="hint">Tài xế có giao hàng trên TMS: ${tR?`${mLbl(addM(m,-1))} ${fmt(tR.drivers)} người (${fmt(tR.driverDays/26,1)} FTE)`:"–"} · ${tM?`${mLbl(m)} ${fmt(tM.drivers)} người (${fmt(tM.driverDays/26,1)} FTE)`:"–"}. Chi phí/thùng ${mLbl(m)} (sau share): ${anyS&&tM?fmt(postS/tM.cases):"–"} đ · ${r?mLbl(addM(m,-1)):"M-2"}: ${rD&&tR?fmt(rD/tR.cases):"–"} đ.</p>`;
   // Nhân sự Quản lý, Kế toán, Thủ kho, DSM
   const uW=OPS_UI.find(u=>u.id==="whKeeper"),uD=OPS_UI.find(u=>u.id==="dsm"),uM=OPS_UI.find(u=>u.id==="mgmt");
-  const aT=rowT("acct"),dT=rowT("dsm"),gT=eo.mgmt!=null&&eo.mgmt!==""?+eo.mgmt:0,anyM=anyV(["acctN","acctBase","acctAllow","acctBonus","dsmN","dsmBase","dsmAllow","dsmBonus","mgmt"]);
-  const preM=aT+dT+gT,postM=aT*opsShare(uW)/100+dT*opsShare(uD)/100+gT*opsShare(uM)/100;
+  const aT=rowT("acct"),dT=rowT("dsm"),mT=rowT("mgmt"),anyM=anyV(["acctN","acctBase","acctAllow","acctBonus","dsmN","dsmBase","dsmAllow","dsmBonus","mgmtN","mgmtBase","mgmtAllow","mgmtBonus"]);
+  const preM=aT+dT+mT,postM=aT*opsShare(uW)/100+dT*opsShare(uD)/100+mT*opsShare(uM)/100;
   const rM=r?(r.whKeeper||0)+(r.dsm||0)+(r.mgmt||0):null,dM=anyM&&rM?postM-rM:null;
   $("#vMgmt").innerHTML=`<div class="scroll"><table class="dt"><thead><tr><th class="l">${mLbl(m)} · NPP nhập</th><th>Số người</th><th>Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>Tổng trước share</th><th>Sau share</th><th>BQ / người</th></tr></thead><tbody>
-    ${sRow("Kế toán, Thủ kho","acct",uW)}${sRow("Nhân viên DSM","dsm",uD)}
-    <tr><td class="l"><b>Quản lý</b><small>Tổng lương</small></td><td>–</td><td>–</td><td>–</td><td>–</td><td>${inpO("mgmt")}</td><td>${anyV(["mgmt"])?fmt(gT*opsShare(uM)/100):"–"}</td><td>–</td></tr>
+    ${sRow("Kế toán, Thủ kho","acct",uW)}${sRow("Nhân viên DSM","dsm",uD)}${sRow("Quản lý","mgmt",uM)}
     <tr class="sumrow"><td class="l"><b>Tổng ${mLbl(m)}</b></td><td colspan="4"></td><td><b>${anyM?fmt(preM):"–"}</b></td><td><b>${anyM?fmt(postM):"–"}</b></td><td></td></tr>
-    <tr><td class="l"><b>${r?mLbl(addM(m,-1)):"M-2"} · PnL Detail</b><small>Kế toán, Thủ kho + DSM + Quản lý</small></td><td colspan="4"></td><td><b>${rM!=null?fmt(rM):"–"}</b></td><td></td><td></td></tr>
-    <tr><td class="l"><b>Chênh lệch</b></td><td colspan="5"></td><td>${dM!=null?`<span class="${Math.abs(dM)/rM>.1?"d-dn":""}">${dM>0?"+":""}${fmt(dM)} (${dM>0?"+":""}${fmt(dM/rM*100,1)}%)</span>`:"–"}</td><td></td></tr>
+    <tr><td class="l"><b>${r?mLbl(addM(m,-1)):"M-2"} · PnL Detail</b><small>Kế toán, Thủ kho + DSM + Quản lý</small></td><td colspan="5"></td><td><b>${rM!=null?fmt(rM):"–"}</b></td><td></td></tr>
+    <tr><td class="l"><b>Chênh lệch</b></td><td colspan="5"></td>${dCell(dM,rM)}<td></td></tr>
   </tbody></table></div>`;
 }
 document.addEventListener("change",e=>{const el=e.target;if(!el.closest||!el.closest("#tab-verify"))return;
