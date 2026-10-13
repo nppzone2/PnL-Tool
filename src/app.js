@@ -634,7 +634,11 @@ $("#gisT").addEventListener("change",e=>{const k=e.target.dataset.gshare;if(!k)r
   S.gshare[key]=S.gshare[key]||{};
   const v=e.target.value.trim()===""?null:parse(e.target.value);if(v==null)delete S.gshare[key][k];else S.gshare[key][k]=Math.min(Math.max(v,0),100);LS.set("gshare",S.gshare);refreshDerived()});
 function applyOps(){const open=isOpen();
-  ENG_KEYS.forEach(k=>["_q","_v","_s"].forEach(x=>{const el=$("#"+k+x);if(el)el.readOnly=open}));["mkWs_v","mkRt_v","mkOt_v","mkWs_p","mkRt_p","mkOt_p","credit"].forEach(id=>$("#"+id).readOnly=open);
+  // Mục 2 (chi phí vận hành, đầu tư thị trường): tháng đã chốt lấy số từ GIS input nên khóa không cho sửa
+  ENG_KEYS.forEach(k=>["_q","_v","_s"].forEach(x=>{const el=$("#"+k+x);if(el)el.readOnly=true}));["mkWs_v","mkRt_v","mkOt_v","mkWs_p","mkRt_p","mkOt_p"].forEach(id=>$("#"+id).readOnly=true);
+  // Khấu hao và chi phí vốn: tháng mở vẫn cho nhập tay, tháng đã chốt khóa theo GIS input
+  ["depTruck","depFork","depTools","capInt","capBad","capOt"].forEach(k=>["_q","_v","_s","_p"].forEach(x=>{const el=$("#"+k+x);if(el)el.readOnly=!open}));
+  ["credit"].forEach(id=>$("#"+id).readOnly=open);
   if(!open)return;const o=S.ops[okey()]||{};
   const put=(k,q,v,sh=100)=>{set(k+"_q",q??"");set(k+"_v",v??"");set(k+"_s",v!=null?sh:"")};
   const fp=FIN("petro"),fb=FIN("bike"),shu=i=>opsShare(OPS_UI[i]);
