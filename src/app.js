@@ -99,7 +99,15 @@ $("#oiB").innerHTML=OIS.map(row).join("");$("#icB").innerHTML=`<details class="a
 
 function fillMonths(keep){const n=cur(),ms=Object.keys(n.months).sort();
   $("#selMon").innerHTML=ms.map(m=>`<option value="${m}">${mLbl(m)}${n.months[m].open?" · chưa chốt":""}</option>`).join("");
-  $("#selMon").value=keep&&ms.includes(keep)?keep:(S.so&&ms.includes(S.so.month)?S.so.month:ms[ms.length-1])}
+  const dm=defMon(ms);
+  $("#selMon").value=keep&&ms.includes(keep)?keep:(dm||(S.so&&ms.includes(S.so.month)?S.so.month:ms[ms.length-1]));updMonNote()}
+// NPP: tháng mặc định là M-1 so với tháng hiện tại; Admin giữ cách chọn cũ
+const mPrev=()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
+function defMon(ms){if(IS_ADMIN)return null;const m1=mPrev();return ms.includes(m1)?m1:(ms.filter(m=>m<=m1).pop()||null)}
+// Box lưu ý khi NPP chọn tháng khác tháng mặc định
+function updMonNote(){const el=$("#monNote");if(!el)return;const dm=defMon(Object.keys(cur().months).sort());
+  if(!dm||mon()===dm){el.hidden=true;el.innerHTML="";return}
+  el.hidden=false;el.innerHTML=`<b>Lưu ý tháng nhập:</b> bạn đang chọn <b>${mLbl(mon())}</b>. Tháng mặc định là ${mLbl(dm)} (M-1). Kiểm tra đúng tháng trước khi nhập và bấm Hoàn tất.`}
 
 function loadNpp(){
   const n=cur(),m=n.months[mon()],V=m.vol;
@@ -804,7 +812,7 @@ function focusNext(t){const pane=document.getElementById("tab-"+t);if(!pane)retu
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{goTab(b.dataset.tab);focusNext(b.dataset.tab)}));
 $("#selNpp").addEventListener("change",()=>{fillMonths(mon());loadNpp()});
 $("#selZone").addEventListener("change",()=>{fillNpp(+$("#selNpp").value);fillMonths(mon());loadNpp()});
-$("#selMon").addEventListener("change",loadNpp);
+$("#selMon").addEventListener("change",()=>{updMonNote();loadNpp()});
 $("#f").addEventListener("submit",e=>{e.preventDefault();render(calc());const o=$("#out");o.classList.remove("flash");void o.offsetWidth;o.classList.add("flash");
   if(window.innerWidth<900)o.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})});
 $("#reset").onclick=loadNpp;
