@@ -14,6 +14,13 @@
 .opf{display:flex;flex-wrap:wrap;gap:8px}.opf label{display:grid;gap:2px;font-size:11px;color:var(--muted)}.opf input.v{width:130px;min-width:0}
 table.dt.ops td{vertical-align:middle}table.dt.ops input.v{min-width:110px;width:100%}table.dt.ops td small{display:block}table.dt.ops td.l small{max-width:280px;white-space:normal}table.dt tr.badrow td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 .errtxt{color:var(--red);font-weight:700}
+.mdlg{border:0;border-radius:14px;padding:22px 24px;max-width:440px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(0,0,0,.3);color:#0b1f12;background:#fff}
+.mdlg::backdrop{background:rgba(5,30,15,.55)}
+.mdlg h3{margin:0 0 8px;color:#0b4f2a}
+.mdlg p{margin:0 0 18px;line-height:1.5}
+.mdlg-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.mdlg-actions button{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:1px solid #0b4f2a;background:#fff;color:#0b4f2a;cursor:pointer}
+.mdlg-actions button.primary{background:#00843d;color:#fff;border-color:#00843d}
 .monnote{margin-top:12px;background:#fff3c4;color:#5c4300;border-radius:10px;padding:10px 14px;font-size:14px;position:relative;z-index:1}
 .vfinal{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--green-soft)}.vfinal>span:first-child{font-weight:700}.vfinal input.v{width:150px;min-width:0;background:var(--surface)}
 button.primary:disabled{opacity:.5;cursor:not-allowed}
@@ -165,6 +172,11 @@ details.autosec[hidden]{display:none!important}
       <div><label for="selMon">Tháng P&amp;L</label><select id="selMon"></select></div>
     </div>
     <div class="monnote" id="monNote" hidden></div>
+    <dialog id="monDlg" class="mdlg">
+      <h3>Xác nhận tháng nhập</h3>
+      <p id="monDlgTxt"></p>
+      <div class="mdlg-actions"><button type="button" id="monDlgCancel">Hủy, chọn lại</button><button type="button" id="monDlgOk" class="primary">OK, tiếp tục</button></div>
+    </dialog>
     <div class="meta" id="meta"></div>
     <div class="xbar"><button type="button" class="xbtn" hidden>⤓ Xuất Excel</button><span id="xMsg"></span><span id="xNote" hidden></span></div>
   </header>
