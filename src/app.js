@@ -643,7 +643,7 @@ function applyOps(){const open=isOpen();
 function fuelMonths(n,m){const all=Object.keys(Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{})).sort().filter(k=>k<=m&&(tmsSum(k)||{})[n.id]);return all.slice(-2)}
 function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   if(!isOpen()){$("#vFuel").innerHTML=$("#vStaff").innerHTML=`<p class="lead">${mLbl(m)} đã chốt, không cần verify.</p>`;return}
-  const ms=fuelMonths(n,m),npp=opsTotal(OPS_UI[0]);
+  const ms=fuelMonths(n,m),npp=opsTotal(OPS_UI[0]),nppRaw=opsRaw(OPS_UI[0]),sP=opsShare(OPS_UI[0]);
   const rows=ms.map(k=>{const t=tmsSum(k)[n.id],l=truckLitres(t),p=fuel("truck",k),c=p?l.L*p:null,mm=n.months[k];
     const act=k===m?npp:(mm&&!mm.open?mm.petro:null);return {k,t,l,p,c,act}});
   const cur9=rows.find(x=>x.k===m),fp=FIN("petro"),outs=hist(n,m).every(k=>!(n.months[k].petro>0))&&hist(n,m).some(k=>n.months[k].trOther>0);
@@ -653,8 +653,8 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
     <td><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" value="${x.p?fmt(x.p):""}" placeholder="nhập giá" style="max-width:110px"></td>
     <td>${x.c!=null?fmt(x.c):"–"}</td><td>${x.act!=null?fmt(x.act):'<span class="muted">chưa nhập</span>'}</td><td>${x.k===m&&opsRaw(OPS_UI[0])!=null?fmt(opsRaw(OPS_UI[0])):"–"}</td><td>${x.c&&x.act!=null?`<b class="${Math.abs(x.act/x.c-1)>.15?"d-dn":""}">${fmt(x.act/x.c*100,1)}%</b>`:"–"}</td><td>${d!=null?`<span class="${Math.abs(d)/x.c>.15?"d-dn":""}">${d>0?"+":""}${fmt(d)} (${d>0?"+":""}${fmt(d/x.c*100,1)}%)</span>`:"–"}</td></tr>`}).join("")}
   </tbody></table></div>
-  <div class="vfinal"><span>Final xăng dầu xe tải ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="petro" value="${fp!=null?fmt(fp):""}" placeholder="${npp!=null?fmt(npp):"nhập số final"}">
-    <span class="muted">Để trống = dùng số NPP nhập${cur9&&cur9.c!=null?` · theo TMS: ${fmt(Math.round(cur9.c))}`:""}</span></div>
+  <div class="vfinal"><span>Final xăng dầu xe tải ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="petro" value="${fp!=null?fmt(fp):""}" placeholder="${nppRaw!=null?fmt(nppRaw):"nhập số final"}">
+    <span class="muted">Để trống = dùng số NPP nhập (trước share)${cur9&&cur9.c!=null&&sP>0?` · theo TMS trước share (${fmt(sP)}%): ${fmt(Math.round(cur9.c/(sP/100)))}`:""}</span></div>
   <div class="vfinal"><span>Final xăng dầu xe máy ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="bike" value="${FIN("bike")!=null?fmt(FIN("bike")):""}" placeholder="${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"nhập số final"}">
     <span class="muted">NPP nhập: ${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"–"} (trước share: ${opsRaw(OPS_UI[1])!=null?fmt(opsRaw(OPS_UI[1])):"–"}) · Tham chiếu M-2: ${r?fmt(r.bike||0):"–"}</span></div>
   <details class="sec" style="margin-top:10px"><summary><span class="t">Định mức tiêu hao &amp; hệ số quãng đường</span><span class="tag">lít / 100 km</span></summary><div class="body">
