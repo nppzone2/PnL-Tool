@@ -14,6 +14,7 @@
 .opf{display:flex;flex-wrap:wrap;gap:8px}.opf label{display:grid;gap:2px;font-size:11px;color:var(--muted)}.opf input.v{width:130px;min-width:0}
 table.dt.ops td{vertical-align:middle}table.dt.ops input.v{min-width:110px;width:100%}table.dt.ops td small{display:block}table.dt.ops td.l small{max-width:280px;white-space:normal}table.dt tr.badrow td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 .errtxt{color:var(--red);font-weight:700}
+.monnote{margin-top:12px;background:#fff3c4;color:#5c4300;border-radius:10px;padding:10px 14px;font-size:14px;position:relative;z-index:1}
 .vfinal{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--green-soft)}.vfinal>span:first-child{font-weight:700}.vfinal input.v{width:150px;min-width:0;background:var(--surface)}
 button.primary:disabled{opacity:.5;cursor:not-allowed}
 .xbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;position:relative;z-index:1;font-size:12.5px}
@@ -163,6 +164,7 @@ details.autosec[hidden]{display:none!important}
       <div><label for="selNpp">Nhà phân phối</label><select id="selNpp"></select></div>
       <div><label for="selMon">Tháng P&amp;L</label><select id="selMon"></select></div>
     </div>
+    <div class="monnote" id="monNote" hidden></div>
     <div class="meta" id="meta"></div>
     <div class="xbar"><button type="button" class="xbtn" hidden>⤓ Xuất Excel</button><span id="xMsg"></span><span id="xNote" hidden></span></div>
   </header>
