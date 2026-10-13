@@ -157,7 +157,7 @@ details.autosec[hidden]{display:none!important}
   <header class="hero">
     <div class="coins" aria-hidden="true"><i>₫</i><i>$</i><i>€</i><i>¥</i><i>£</i></div>
     <h1>Distributor P&amp;L Simulator</h1>
-    <p id="heroLead">Tháng P&amp;L là M-1. Nhập <b>Giá bán</b> và <b>Chi phí vận hành</b>, bấm <b>Hoàn tất</b> để gửi số liệu về hệ thống, sau đó xem kết quả ở tab <b>P&amp;L</b>.</p>
+    <p id="heroLead">Chọn tháng ở ô <b>Tháng P&amp;L</b> để nhập <b>Giá bán</b> và <b>Chi phí vận hành</b>, bấm <b>Hoàn tất</b> để gửi số liệu về hệ thống, sau đó xem kết quả ở tab <b>P&amp;L</b>.</p>
     <div class="picker">
       <div><label for="selZone">Khu vực</label><select id="selZone"></select></div>
       <div><label for="selNpp">Nhà phân phối</label><select id="selNpp"></select></div>
@@ -173,6 +173,7 @@ details.autosec[hidden]{display:none!important}
     <button role="tab" data-tab="ops" aria-selected="false">Chi phí vận hành</button>
     <button role="tab" data-tab="dep" aria-selected="false">Khấu hao</button>
     <button role="tab" data-tab="sub" aria-selected="false">Ghi nhận HT<span class="cnt" id="subCnt" hidden></span></button>
+    <button role="tab" data-tab="recon" aria-selected="false">Đối chiếu CPVH</button>
     <button role="tab" data-tab="verify" aria-selected="false">Verify data<span class="cnt" id="cmpCnt" hidden></span></button>
     <button role="tab" data-tab="gis" aria-selected="false">GIS Input</button>
     <button role="tab" data-tab="chan" aria-selected="false">Channel<span class="cnt" id="chanCnt" hidden></span></button>
@@ -275,8 +276,26 @@ details.autosec[hidden]{display:none!important}
     <div class="card">
       <h2>Ghi nhận HT</h2>
       <p class="lead">Số liệu NPP gửi khi bấm Hoàn tất. Bài mới được tự nạp vào tool; bấm <b>Xem</b> để mở P&amp;L.</p>
-      <div class="toolbar"><label class="muted" for="subMon">Tháng</label><select id="subMon"></select><label class="muted" for="subZone">Khu vực</label><select id="subZone"></select><button type="button" id="subRefresh">Làm mới</button><span class="muted" id="subMsg"></span></div>
+      <div class="toolbar"><label class="muted" for="subMon">Tháng</label><select id="subMon"></select><label class="muted" for="subZone">Khu vực</label><select id="subZone"></select><button type="button" id="subRefresh">Làm mới</button><button type="button" id="subXlsx">⤓ Tải Excel</button><span class="muted" id="subMsg"></span></div>
       <div class="scroll"><table class="dt" id="subT"></table></div>
+    </div>
+  </section>
+
+  <section class="tabpane" id="tab-recon" hidden>
+    <div class="card">
+      <h2>Đối chiếu chi phí vận hành</h2>
+      <p class="lead">So sánh số NPP đã nhập (sau share) với số P&amp;L hiện tại theo từng tháng. Dòng vượt ngưỡng được tô đỏ; bấm <b>Tải Excel</b> để lưu lại.</p>
+      <div class="toolbar">
+        <label class="muted" for="reFrom">Từ tháng</label><select id="reFrom"></select>
+        <label class="muted" for="reTo">Đến tháng</label><select id="reTo"></select>
+        <label class="muted" for="reZone">Khu vực</label><select id="reZone"></select>
+        <label class="muted" for="reNpp">NPP</label><select id="reNpp"></select>
+        <label class="muted" for="reTh">Ngưỡng lệch (%)</label><input id="reTh" value="10" inputmode="decimal" style="width:70px">
+        <label class="muted"><input type="checkbox" id="reOnly" checked> Chỉ dòng lệch</label>
+        <button type="button" id="reXlsx">⤓ Tải Excel</button><span class="muted" id="reMsg"></span>
+      </div>
+      <div class="stats" id="reKpi"></div>
+      <div class="scroll"><table class="dt" id="reT"></table></div>
     </div>
   </section>
 

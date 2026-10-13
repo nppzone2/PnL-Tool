@@ -19,7 +19,8 @@ Khi NPP bấm **Hoàn tất & gửi về hệ thống**, Giá bán + Chi phí v�
 ## Cấu trúc Sheet
 
 - `Submissions`: mỗi NPP × tháng một dòng, bài nộp sau ghi đè bài trước, cột `Lần gửi` tăng dần.
-- `Log`: lịch sử toàn bộ các lần gửi.
+- `Log`: nhật ký các lần gửi (thời gian, NPP, tháng, PAT, công nợ), không chứa chi tiết chi phí.
+- `Lịch sử`: mỗi lần gửi là một dòng đầy đủ số liệu (kèm payload), không ghi đè. Dùng để đối chiếu và tải lại số liệu cũ.
 
 ## Lưu ý
 

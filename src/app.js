@@ -564,9 +564,9 @@ const OP_SLOT={"dsmN":"q","dsmBase":"p","dsmAllow":"a","dsmBonus":"b","petroN":"
 const OP_PH={dsmN:"người",dsmBase:"VND",dsmAllow:"VND",dsmBonus:"VND",petroN:"xe",bikeN:"xe",whArea:"m²",whPrice:"đ/m²",drvN:"người",asstN:"người",acctN:"người",acctBase:"VND",acctAllow:"VND",acctBonus:"VND",drvBase:"VND",asstBase:"VND",drvAllow:"VND",asstAllow:"VND",drvBonus:"VND",asstBonus:"VND"};
 OPS_UI.forEach(u=>{OP_PH[u.id+"_sh"]="%"});
 function renderOps(){const n=cur(),m=mon(),r=refM(),o=S.ops[okey()]||{},V=r?r.vol:0,SV=soTotal()||V;
-  if(!isOpen()){$("#opsOut").innerHTML=`<p class="lead">${mLbl(m)} đã chốt trên PnL Detail. Chọn tháng cần làm P&amp;L (M-1) để nhập chi phí vận hành.</p>`;return}
+  const closedNote=isOpen()?"":`<p class="lead">${mLbl(m)} đã chốt trên PnL Detail. Số nhập ở đây chỉ để đối chiếu, không thay đổi P&amp;L.</p>`;
   const inp=(k,bad)=>`<input class="v${bad?" lowp":""}" inputmode="decimal" data-op="${k}" value="${o[k]!=null&&o[k]!==""?fmt(o[k]):""}" placeholder="${OP_PH[k]||"VND"}">`;
-  $("#opsOut").innerHTML=`<div class="scroll"><table class="dt ops"><thead><tr><th class="l">Hạng mục</th><th>Số lượng</th><th>Đơn giá / Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>%Share</th><th>Tổng tiền ${mLbl(m)}</th><th>Tham chiếu M-2</th><th>Chênh lệch</th></tr></thead><tbody>
+  $("#opsOut").innerHTML=`${closedNote}<div class="scroll"><table class="dt ops"><thead><tr><th class="l">Hạng mục</th><th>Số lượng</th><th>Đơn giá / Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>%Share</th><th>Tổng tiền ${mLbl(m)}</th><th>Tham chiếu M-2</th><th>Chênh lệch</th></tr></thead><tbody>
   ${OPS_UI.map(u=>{const t=opsTotal(u),rv=r?u.ref(r):null,bad=u.req&&!creditOk(),cell={};
     // So sánh tài xế với PnL Detail gồm cả phụ xế (vẫn nhập tách hai dòng)
     const tc=u.id==="drv"?(t!=null?t+(opsTotal(OPS_UI.find(x=>x.id==="asst"))||0):null):t,d=tc!=null&&rv?tc-rv:null;u.f.forEach(([k])=>cell[OP_SLOT[k]]=k);
@@ -853,9 +853,71 @@ $("#subT").addEventListener("click",e=>{const k=e.target.dataset&&e.target.datas
   applySub(x,true);LS.set("ops",S.ops);LS.set("prices",S.prices);
   const i=NPP.findIndex(n=>n.id===x.disId);if(i<0)return;setNpp(i);fillMonths(x.month);loadNpp();refreshAll();goTab("pl")});
 $("#subRefresh").onclick=loadSubs;$("#subMon").onchange=renderSubs;$("#subZone").onchange=renderSubs;
+$("#subXlsx").onclick=()=>exportRecon("Bai_nop_"+$("#subMon").value.replace("-",""),subsRows(SUBS.filter(x=>x.month===$("#subMon").value&&(!$("#subZone").value||zoneOfDis(x.disId)===$("#subZone").value))),false);
 loadFA();
 if(IS_ADMIN&&API_URL)loadSubs();else if(IS_ADMIN)$("#subMsg").textContent="Chưa cấu hình API_URL nên chưa nhận được bài nộp.";
 
+// ===== Đối chiếu chi phí vận hành (Admin) =====
+// Dòng chi phí của một bài nộp: trước share, sau share, và số P&L hiện tại (cùng cách so với "Tham chiếu M-2")
+function subsRows(subs){const out=[];
+  subs.forEach(x=>{const o=(x.data&&x.data.ops)||{},n=NPP.find(q=>q.id===x.disId),ref=(n&&n.months[x.month])||{};
+    const raw=u=>u.f.some(([k])=>o[k]==null||o[k]==="")?null:u.tot(o),sh=u=>{const v=o[u.id+"_sh"];return v==null||v===""||!isFinite(v)?100:Math.min(Math.max(v,0),100)};
+    const pick=(u,slot)=>{const f=u.f.find(([k])=>OP_SLOT[k]===slot);return f?o[f[0]]:null};
+    const A=OPS_UI.find(w=>w.id==="asst"),part=(v,w)=>v==null?null:(w.req?v:v*sh(w)/100);
+    OPS_UI.filter(u=>u.id!=="credit"&&u.id!=="asst").forEach(u=>{
+      const isD=u.id==="drv",rw=raw(u),ra=isD?raw(A):null;
+      const pre=isD?(rw==null?null:rw+(ra||0)):rw;
+      const post=isD?(rw==null?null:part(rw,u)+(ra==null?0:part(ra,A))):part(rw,u);
+      const pl=u.ref?u.ref(ref):null,plv=pl==null||isNaN(pl)?null:pl;
+      const diff=post!=null&&plv!=null?post-plv:null,pct=diff==null?null:(plv?diff/plv:(diff?1:0));
+      const miss=post==null,flag=miss||(pct!=null&&Math.abs(pct)>RE_TH()/100);
+      out.push({key:x.key,month:x.month,code:x.code||"",area:zoneOfDis(x.disId),t:isD?"Tài xế + phụ xế":u.t,
+        q:pick(u,"q"),p:pick(u,"p"),a:pick(u,"a"),b:pick(u,"b"),sh:u.req?null:sh(u),pre,post,pl:plv,diff,pct,miss,flag})})});
+  return out}
+const RE_TH=()=>{const v=parse($("#reTh").value);return isFinite(v)&&v>=0?v:10};
+function renderRecon(){if(!IS_ADMIN||!$("#reT"))return;
+  const sF=$("#reFrom"),sT=$("#reTo"),sZ=$("#reZone"),sN=$("#reNpp"),ms=[...new Set(NPP.flatMap(n=>Object.keys(n.months)))].sort();
+  if(!sF.options.length){sF.innerHTML=sT.innerHTML=ms.map(m=>`<option value="${m}">${mLbl(m)}</option>`).join("");
+    sF.value=ms.includes("2026-01")?"2026-01":ms[0];sT.value=ms.includes("2026-08")?"2026-08":ms[ms.length-1];
+    sZ.innerHTML=`<option value="">Tất cả</option>`+[...new Set(NPP.map(zoneOf))].sort().map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join("")}
+  const z=sZ.value,list=NPP.filter(n=>!z||zoneOf(n)===z).sort((a,b)=>String(a.code).localeCompare(String(b.code))),keepN=sN.value;
+  sN.innerHTML=`<option value="">Tất cả NPP</option>`+list.map(n=>`<option value="${n.id}">${esc(n.code)} · ${esc(n.area||"")}</option>`).join("");
+  sN.value=list.some(n=>n.id===keepN)?keepN:"";
+  const from=sF.value,to=sT.value,nid=sN.value,inRange=m=>m>=from&&m<=to;
+  const subs=SUBS.filter(x=>inRange(x.month)&&(!z||zoneOfDis(x.disId)===z)&&(!nid||x.disId===nid));
+  const all=subsRows(subs),onlyD=$("#reOnly").checked,shown=all.filter(r=>!onlyD||r.flag);
+  const pairs=new Set();NPP.filter(n=>(!z||zoneOf(n)===z)&&(!nid||n.id===nid)).forEach(n=>Object.keys(n.months).forEach(m=>{if(inRange(m))pairs.add(n.id+"|"+m)}));
+  const got=new Set(subs.map(x=>x.disId+"|"+x.month)),gotN=[...pairs].filter(k=>got.has(k)).length;
+  const flagN=all.filter(r=>r.flag).length,sumD=all.reduce((a,r)=>a+(r.diff||0),0);
+  $("#reKpi").innerHTML=`<div class="stat"><div class="k">Bài nộp đã nhận</div><div class="v">${gotN}/${pairs.size}</div></div>
+    <div class="stat"><div class="k">Dòng lệch hoặc chưa nhập</div><div class="v d-dn">${flagN}</div></div>
+    <div class="stat"><div class="k">Tổng chênh lệch (sau share − P&amp;L)</div><div class="v ${sumD<0?"d-dn":""}">${sumD>0?"+":""}${fmt(sumD)}</div></div>`;
+  const cn=v=>v==null||v===""||(typeof v==="number"&&!isFinite(v))?"–":fmt(v),sg=v=>v==null?"–":(v>0?"+":"")+fmt(v);
+  const tot=k=>shown.reduce((a,r)=>a+(r[k]||0),0);
+  $("#reT").innerHTML=`<thead><tr><th class="l">Tháng</th><th class="l">NPP</th><th class="l">Hạng mục</th><th>Số lượng</th><th>Đơn giá / Lương</th><th>Phụ cấp</th><th>Thưởng</th><th>%Share</th><th>Trước share</th><th>Sau share</th><th>P&amp;L hiện tại</th><th>Chênh lệch</th><th>%</th></tr></thead><tbody>${
+    shown.length?shown.map(r=>`<tr><td class="l">${mLbl(r.month)}</td><td class="l"><b>${esc(r.code)}</b> <span class="muted">${esc(r.area)}</span></td><td class="l">${esc(r.t)}</td>
+      <td>${cn(r.q)}</td><td>${cn(r.p)}</td><td>${cn(r.a)}</td><td>${cn(r.b)}</td><td>${r.sh==null?"–":fmt(r.sh)+"%"}</td>
+      <td>${r.miss?'<span class="muted">chưa nhập</span>':cn(r.pre)}</td><td><b>${r.miss?"–":cn(r.post)}</b></td><td>${cn(r.pl)}</td>
+      <td class="${r.flag&&r.diff?"d-dn":""}">${sg(r.diff)}</td><td class="${r.flag?"d-dn":""}">${r.pct==null?"–":sg(r.pct*100)+"%"}</td></tr>`).join(""):`<tr><td colspan="13" class="l muted">Không có dòng nào theo bộ lọc.</td></tr>`}</tbody>
+    ${shown.length?`<tfoot><tr class="sumrow"><td class="l" colspan="8"><b>Tổng ${shown.length} dòng</b></td><td><b>${cn(tot("pre"))}</b></td><td><b>${cn(tot("post"))}</b></td><td><b>${cn(tot("pl"))}</b></td><td><b>${sg(tot("diff"))}</b></td><td></td></tr></tfoot>`:""}`;
+}
+const RE_HEAD=["Tháng","NPP","Khu vực","Hạng mục","Số lượng","Đơn giá / Lương","Phụ cấp","Thưởng","%Share","Trước share","Sau share","P&L hiện tại","Chênh lệch","Lệch %","Cần kiểm tra"];
+async function exportRecon(name,rows,fromScreen){const msg=fromScreen===false?null:$("#reMsg");if(msg)msg.textContent="Đang tạo file…";
+  try{const X=await loadXlsx(),n0x=v=>v==null||v===""||(typeof v==="number"&&!isFinite(v))?"":v,
+    aoa=[RE_HEAD,...rows.map(r=>[mLbl(r.month),r.code,r.area,r.t,n0x(r.q),n0x(r.p),n0x(r.a),n0x(r.b),r.sh==null?"":r.sh,n0x(r.pre),n0x(r.post),n0x(r.pl),n0x(r.diff),r.pct==null?"":r.pct*100,r.flag?"Có":""])],
+    ws=X.utils.aoa_to_sheet(aoa),wb=X.utils.book_new();ws["!cols"]=[9,10,14,32,11,16,12,12,9,14,14,14,14,10,12].map(w=>({wch:w}));
+    X.utils.book_append_sheet(wb,ws,"Đối chiếu CPVH");
+    const buf=X.write(wb,{bookType:"xlsx",type:"array"});
+    await saveBlob(name+".xlsx",new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+    if(msg)msg.textContent=`Đã xuất ${rows.length} dòng.`}
+  catch(e){if(msg)msg.textContent="Không xuất được: "+e.message}}
+["reFrom","reTo","reZone","reNpp","reOnly"].forEach(id=>$("#"+id).addEventListener("change",renderRecon));
+$("#reTh").addEventListener("input",renderRecon);
+$("#reXlsx").onclick=()=>{const z=$("#reZone").value,nid=$("#reNpp").value,f=$("#reFrom").value,t=$("#reTo").value;
+  const rows=subsRows(SUBS.filter(x=>x.month>=f&&x.month<=t&&(!z||zoneOfDis(x.disId)===z)&&(!nid||x.disId===nid)));
+  exportRecon("Doi_chieu_CPVH_"+f.replace("-","")+"_"+t.replace("-",""),rows)};
+
+renderRecon();
 // Ẩn tab ngoài phạm vi quyền
 document.querySelectorAll(".tabs button").forEach(b=>{if(!tabOk(b.dataset.tab)){b.hidden=true;b.style.setProperty("display","none","important")}});
 goTab("pl");
