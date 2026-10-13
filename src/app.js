@@ -372,15 +372,20 @@ function renderCmp(){const rows=cmpRows(),lo=rows.filter(r=>r.lo);
 // ---- Channel tab
 function soTypeVol(dis){const out={};if(!S.so)return out;const src=dis?{[dis]:S.so.data[dis]||{}}:S.so.data;
   for(const d in src)for(const sku in src[d])for(const t in src[d][sku])out[t]=(out[t]||0)+src[d][sku][t];return out}
-function renderChan(){const mine=soTypeVol(cur().id),all=soTypeVol(null);const types=[...new Set([...Object.keys(S.chan),...Object.keys(all)])].sort((a,b)=>(all[b]||0)-(all[a]||0));
+let CHAN_SORT={k:"all",d:-1}; // mặc định: SL toàn vùng giảm dần
+function renderChan(){const mine=soTypeVol(cur().id),all=soTypeVol(null);const types=[...new Set([...Object.keys(S.chan),...Object.keys(all)])];
+  const sv=(t,k)=>k==="type"?t:k==="ch"?(S.chan[t]||""):k==="mine"?(mine[t]||0):(all[t]||0);
+  types.sort((a,b)=>{const x=sv(a,CHAN_SORT.k),y=sv(b,CHAN_SORT.k),c=typeof x==="string"?x.localeCompare(y,"vi"):x-y;return c*CHAN_SORT.d||a.localeCompare(b,"vi")});
+  const th=(k,lbl,cls="")=>{const on=CHAN_SORT.k===k;return `<th class="${cls}" data-sort="${k}" aria-sort="${on?(CHAN_SORT.d>0?"ascending":"descending"):"none"}" style="cursor:pointer;user-select:none;white-space:nowrap">${lbl} <span class="muted" style="opacity:${on?1:.35}">${on?(CHAN_SORT.d>0?"▲":"▼"):"↕"}</span></th>`};
   const un=types.filter(t=>!S.chan[t]&&all[t]);$("#chanCnt").hidden=!un.length;$("#chanCnt").textContent=un.length;
-  $("#chanT").innerHTML=`<thead><tr><th class="l">Outlet type</th><th class="l">Channel</th><th>SL ${cur().code}</th><th>SL toàn vùng</th><th></th></tr></thead><tbody>${types.map(t=>`<tr>
+  $("#chanT").innerHTML=`<thead><tr>${th("type","Outlet type","l")}${th("ch","Channel","l")}${th("mine","SL "+cur().code)}${th("all","SL toàn vùng")}<th></th></tr></thead><tbody>${types.map(t=>`<tr>
     <td class="l">${esc(t)}${S.chan[t]?"":' <span class="pill bad">chưa gán</span>'}</td>
     <td class="l"><select class="ch" data-type="${esc(t)}"><option value="">—</option>${CH.map(c=>`<option${S.chan[t]===c?" selected":""}>${c}</option>`).join("")}</select></td>
     <td>${mine[t]?fmt(mine[t]):"–"}</td><td>${all[t]?fmt(all[t]):"–"}</td>
     <td>${DEFAULT_CHAN[t]||all[t]?"":`<button type="button" class="del" data-type="${esc(t)}" style="padding:4px 10px;font-size:12px">Xoá</button>`}</td></tr>`).join("")}</tbody>`}
 $("#chanT").addEventListener("change",e=>{const t=e.target.dataset.type;if(t==null)return;if(e.target.value)S.chan[t]=e.target.value;else delete S.chan[t];LS.set("chan",S.chan);refreshAll()});
-$("#chanT").addEventListener("click",e=>{const t=e.target.dataset&&e.target.dataset.type;if(!e.target.classList.contains("del"))return;delete S.chan[t];LS.set("chan",S.chan);refreshAll()});
+$("#chanT").addEventListener("click",e=>{const h=e.target.closest&&e.target.closest("th[data-sort]");if(h){const k=h.dataset.sort;CHAN_SORT=CHAN_SORT.k===k?{k,d:-CHAN_SORT.d}:{k,d:k==="type"||k==="ch"?1:-1};renderChan();return}
+  const t=e.target.dataset&&e.target.dataset.type;if(!e.target.classList.contains("del"))return;delete S.chan[t];LS.set("chan",S.chan);refreshAll()});
 $("#addType").onclick=()=>{const t=$("#newType").value.trim();if(!t)return;S.chan[t]=$("#newCh").value;$("#newType").value="";LS.set("chan",S.chan);refreshAll()};
 $("#resetChan").onclick=()=>{S.chan={...DEFAULT_CHAN};LS.set("chan",S.chan);refreshAll()};
 
