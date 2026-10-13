@@ -18,7 +18,7 @@ table.dt.ops td{vertical-align:middle}table.dt.ops input.v{min-width:110px;width
 .mdlg::backdrop{background:rgba(5,30,15,.55)}
 .mdlg h3{margin:0 0 8px;color:#0b4f2a}
 .mdlg p{margin:0 0 18px;line-height:1.5}
-.mdlg-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.mdlg-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mdlg-actions button{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:1px solid #0b4f2a;background:#fff;color:#0b4f2a;cursor:pointer}
 .mdlg-actions button.primary{background:#00843d;color:#fff;border-color:#00843d}
 .monnote{margin-top:12px;background:#fff3c4;color:#5c4300;border-radius:10px;padding:10px 14px;font-size:14px;position:relative;z-index:1}
@@ -175,7 +175,7 @@ details.autosec[hidden]{display:none!important}
     <dialog id="monDlg" class="mdlg">
       <h3>Xác nhận tháng nhập</h3>
       <p id="monDlgTxt"></p>
-      <div class="mdlg-actions"><button type="button" id="monDlgCancel">No</button><button type="button" id="monDlgOk" class="primary">Yes</button></div>
+      <div class="mdlg-actions"><button type="button" id="monDlgOk" class="primary">Yes</button><button type="button" id="monDlgCancel">No</button></div>
     </dialog>
     <div class="meta" id="meta"></div>
     <div class="xbar"><button type="button" class="xbtn" hidden>⤓ Xuất Excel</button><span id="xMsg"></span><span id="xNote" hidden></span></div>
