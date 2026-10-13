@@ -129,8 +129,8 @@ function loadNpp(){
   ICS.forEach(o=>set(o[0],m[o[0]]));
   const gc=!m.open&&gisCostsFor(n.id,mon());
   if(gc){ // tháng đã chốt: Qty, VND, % share lấy từ GIS input; dòng không có trong file để trống
-    OPS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_q",g.q??"");set(o[0]+"_v",g.v??"");set(o[0]+"_s",g.v?(g.s??100):"")});
-    MKS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_v",g.v??"");set(o[0]+"_p",g.p??"")});
+    OPS.forEach(o=>{const g=gc[o[0]]||{},dep=/^dep/.test(o[0]);set(o[0]+"_q",dep?(g.v?1:""):(g.q||""));set(o[0]+"_v",g.v||"");set(o[0]+"_s",g.v?(g.s??100):"")}); // khấu hao: Qty = 1 như P&L Detail, VND đã là tổng
+    MKS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_v",g.v||"");set(o[0]+"_p",g.p||"")});
   }
   set("wDays",26);set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
   $("#autoCur").checked=!!m.open&&siAmount(n.id,mon())!=null;$("#autoCred").checked=false;$("#autoCred").closest(".arow").hidden=true;
