@@ -814,7 +814,7 @@ document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",
 $("#selNpp").addEventListener("change",()=>{fillMonths(mon());loadNpp()});
 $("#selZone").addEventListener("change",()=>{fillNpp(+$("#selNpp").value);fillMonths(mon());loadNpp()});
 // NPP chọn tháng khác M-1: hỏi xác nhận; Hủy thì quay lại tháng đã chọn trước đó
-function askMonth(m,dm){const d=$("#monDlg");$("#monDlgTxt").innerHTML=`Bạn đang chọn tháng <b>${mLbl(m)}</b>, khác tháng mặc định <b>${mLbl(dm)}</b> (M-1). Tiếp tục nhập số liệu cho ${mLbl(m)}?`;
+function askMonth(m,dm){const d=$("#monDlg");$("#monDlgTxt").innerHTML=`Bạn đang chọn tháng <b>${mLbl(m)}</b>.<br>Tháng mặc định <b>${mLbl(dm)}</b> (M-1).<br>Tiếp tục nhập số liệu cho <b>${mLbl(m)}</b>?`;
   return new Promise(res=>{let fin=false;const end=v=>{if(fin)return;fin=true;res(v);if(d.open)d.close()};
     $("#monDlgOk").onclick=()=>end(true);$("#monDlgCancel").onclick=()=>end(false);d.oncancel=()=>end(false);
     d.showModal();$("#monDlgCancel").focus()})}
