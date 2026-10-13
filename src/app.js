@@ -577,6 +577,10 @@ const OPS_UI=[
 function opsRaw(u){const o=S.ops[okey()]||{};if(u.f.some(([k])=>o[k]==null||o[k]===""))return null;return u.tot(o)}
 const opsShare=u=>{const v=(S.ops[okey()]||{})[u.id+"_sh"];return v==null||v===""||!isFinite(v)?100:Math.min(Math.max(v,0),100)};
 function opsTotal(u){const t=opsRaw(u);return t==null?null:u.req?t:t*opsShare(u)/100}
+// Số đã điều chỉnh ở tab Verify (nhập đè lên số NPP), dùng cho P&L và các bảng Verify
+const ovOps=()=>((S.fin[okey()]||{}).ops)||{};
+const effO=()=>({...(S.ops[okey()]||{}),...ovOps()});
+function opsRawE(u){const o=effO();if(u.f.some(([k])=>o[k]==null||o[k]===""))return null;return u.tot(o)}
 const creditOk=()=>{const c=OPV("credit");return c!=null&&c>CREDIT_MIN};
 function opsMissing(){const o=S.ops[okey()]||{};return OPS_UI.filter(u=>!u.opt&&opsTotal(u)==null).map(u=>u.t)}
 
@@ -630,15 +634,15 @@ function applyOps(){const open=isOpen();
   ENG_KEYS.forEach(k=>["_q","_v","_s"].forEach(x=>{const el=$("#"+k+x);if(el)el.readOnly=open}));["mkWs_v","mkRt_v","mkOt_v","mkWs_p","mkRt_p","mkOt_p","credit"].forEach(id=>$("#"+id).readOnly=open);
   if(!open)return;const o=S.ops[okey()]||{};
   const put=(k,q,v,sh=100)=>{set(k+"_q",q??"");set(k+"_v",v??"");set(k+"_s",v!=null?sh:"")};
-  const fp=FIN("petro"),fb=FIN("bike"),fd=FIN("driver"),shu=i=>opsShare(OPS_UI[i]);
+  const fp=FIN("petro"),fb=FIN("bike"),shu=i=>opsShare(OPS_UI[i]);
   put("petro",fp!=null||o.petroT!=null?(o.petroN??1):null,fp??o.petroT,shu(0));
   put("bike",fb!=null||o.bikeT!=null?(o.bikeN??1):null,fb??o.bikeT,shu(1));
   put("trOther",o.rent!=null?1:null,o.rent,shu(2));put("hireWh",o.whArea,o.whPrice,shu(3));
-  const dRaw=opsRaw(OPS_UI[4]),aRaw=opsRaw(OPS_UI[5])||0,heads=(o.drvN||0)+(o.asstN||0);
+  const eo=effO(),dRaw=opsRawE(OPS_UI[4]),aRaw=opsRawE(OPS_UI[5])||0,heads=(eo.drvN||0)+(eo.asstN||0);
   const daRaw=(dRaw||0)+aRaw,dShare=daRaw?((dRaw||0)*shu(4)+aRaw*shu(5))/daRaw:100;
-  put("driver",heads||null,fd!=null?fd:dRaw!=null?daRaw:null,dShare);
+  put("driver",heads||null,dRaw!=null?daRaw:null,dShare);
   const acU=OPS_UI.find(u=>u.id==="whKeeper"),mgU=OPS_UI.find(u=>u.id==="mgmt"),ofU=OPS_UI.find(u=>u.id==="office"),ocU=OPS_UI.find(u=>u.id==="otherFee");
-  const pt=(k,u,q)=>{const raw=opsRaw(u);put(k,raw!=null?q:null,raw,opsShare(u))};
+  const pt=(k,u,q)=>{const raw=opsRawE(u);put(k,raw!=null?q:null,raw,opsShare(u))};
   pt("dsm",OPS_UI.find(u=>u.id==="dsm"),o.dsmN);
   pt("whKeeper",acU,o.acctN);pt("mgmt",mgU,1);pt("office",ofU,1);pt("otherFee",ocU,1);
   set("mkWs_v",o.promo!=null?o.promo*opsShare(OPS_UI.find(u=>u.id==="promo"))/100:"");set("mkRt_v","");set("mkOt_v","");["mkWs_p","mkRt_p","mkOt_p"].forEach(id=>set(id,""));
@@ -647,7 +651,7 @@ function applyOps(){const open=isOpen();
 // ---- Verify: fuel
 function fuelMonths(n,m){const all=Object.keys(Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{})).sort().filter(k=>k<=m&&(tmsSum(k)||{})[n.id]);return all.slice(-2)}
 function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
-  if(!isOpen()){$("#vFuel").innerHTML=$("#vStaff").innerHTML=`<p class="lead">${mLbl(m)} đã chốt, không cần verify.</p>`;return}
+  if(!isOpen()){$("#vFuel").innerHTML=$("#vStaff").innerHTML=$("#vMgmt").innerHTML=`<p class="lead">${mLbl(m)} đã chốt, không cần verify.</p>`;return}
   const ms=fuelMonths(n,m),npp=opsTotal(OPS_UI[0]),nppRaw=opsRaw(OPS_UI[0]),sP=opsShare(OPS_UI[0]);
   const rows=ms.map(k=>{const t=tmsSum(k)[n.id],l=truckLitres(t),p=fuel("truck",k),c=p?l.L*p:null,mm=n.months[k];
     const act=k===m?npp:(mm&&!mm.open?mm.petro:null);return {k,t,l,p,c,act}});
@@ -666,21 +670,38 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
     <div class="toolbar"><label class="chk" for="kmF">Hệ số quãng đường</label><input class="v" id="kmF" inputmode="decimal" value="${fmt(S.kmF,2)}" style="max-width:80px"><span class="muted">× km kế hoạch TMS (TMS_Planned_Distance), bù đường về kho</span></div>
     <div class="scroll"><table class="dt"><tbody>${Object.keys(S.norm).map(c=>`<tr><td class="l">${esc(c)}</td><td><input class="v" inputmode="decimal" data-norm="${esc(c)}" value="${fmt(S.norm[c],1)}" style="max-width:90px"></td></tr>`).join("")}</tbody></table></div>
     <p class="hint">Định mức cho xe chở nặng, chạy nội thành, dừng đỗ nhiều điểm. Số lít = km × hệ số × định mức theo loại xe, đã loại chuyến DSA.</p></div></details>`;
-  // staff
-  const rawD=opsRaw(OPS_UI[4]),rawA=opsRaw(OPS_UI[5]),rawT=rawD!=null?rawD+(rawA||0):null;
-  const dT=opsTotal(OPS_UI[4]),aT=opsTotal(OPS_UI[5]),tot=dT!=null?dT+(aT||0):null,heads=(o.drvN||0)+(o.asstN||0),rD=r?r.driver:null;
-  const tM=(tmsSum(m)||{})[n.id],tR=r?(tmsSum(addM(m,-1))||{})[n.id]:null,fd=FIN("driver");
-  const line=(lbl,N,b,a,bo,t,rw)=>`<tr><td class="l"><b>${lbl}</b></td><td>${N!=null?fmt(N):"–"}</td><td>${b!=null?fmt(b):"–"}</td><td>${a!=null?fmt(a):"–"}</td><td>${bo!=null?fmt(bo):"–"}</td><td><b>${t!=null?fmt(t):"–"}</b></td><td>${rw!=null?fmt(rw):"–"}</td><td>${t!=null&&N?fmt(t/N):"–"}</td></tr>`;
-  $("#vStaff").innerHTML=`<div class="scroll"><table class="dt"><thead><tr><th class="l">${mLbl(m)} · NPP nhập</th><th>Số người</th><th>Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>Tổng</th><th>Trước share</th><th>BQ / người</th></tr></thead><tbody>
-    ${line("Tài xế",o.drvN,o.drvBase,o.drvAllow,o.drvBonus,dT,rawD)}${line("Phụ xế",o.asstN,o.asstBase,o.asstAllow,o.asstBonus,aT,rawA)}
-    <tr style="background:var(--surface-2)"><td class="l"><b>Tổng ${mLbl(m)}</b></td><td>${heads?fmt(heads):"–"}</td><td colspan="3"></td><td><b>${tot!=null?fmt(tot):"–"}</b></td><td>${rawT!=null?fmt(rawT):"–"}</td><td>${tot!=null&&heads?fmt(tot/heads):"–"}</td></tr>
-    <tr><td class="l"><b>${r?mLbl(addM(m,-1)):"M-2"} · PnL Detail</b><small>Delivery &amp; Driver</small></td><td>${tR?fmt(tR.drivers)+" <small class=\"muted\">TMS</small>":"–"}</td><td colspan="3"></td><td><b>${rD!=null?fmt(rD):"–"}</b></td><td></td><td>${rD&&tR&&tR.driverDays?fmt(rD/(tR.driverDays/26)):"–"}<small class="muted"> /FTE</small></td></tr>
-    <tr><td class="l"><b>Chênh lệch</b></td><td></td><td colspan="3"></td><td>${tot!=null&&rD?`<span class="${Math.abs(tot-rD)/rD>.1?"d-dn":""}">${tot-rD>0?"+":""}${fmt(tot-rD)} (${tot-rD>0?"+":""}${fmt((tot-rD)/rD*100,1)}%)</span>`:"–"}</td><td></td><td></td></tr>
+  // Nhân sự: số người, lương, phụ cấp, thưởng sửa được; tổng và sau share tự tính
+  const eo=effO(),ov=ovOps(),tM=(tmsSum(m)||{})[n.id],tR=r?(tmsSum(addM(m,-1))||{})[n.id]:null,rD=r?r.driver:null;
+  const rowT=p=>(eo[p+"N"]||0)*((eo[p+"Base"]||0)+(eo[p+"Allow"]||0)+(eo[p+"Bonus"]||0));
+  const anyV=ks=>ks.some(k=>eo[k]!=null&&eo[k]!=="");
+  const inpO=k=>`<input class="v" inputmode="decimal" data-ov="${k}" value="${ov[k]!=null?fmt(ov[k]):""}" placeholder="${o[k]!=null&&o[k]!==""?fmt(o[k]):"–"}" style="min-width:100px">`;
+  const sRow=(lbl,p,u)=>{const ks=[p+"N",p+"Base",p+"Allow",p+"Bonus"],t=rowT(p),sh=opsShare(u),has=anyV(ks);
+    return `<tr><td class="l"><b>${lbl}</b></td>${["N","Base","Allow","Bonus"].map(x=>`<td>${inpO(p+x)}</td>`).join("")}<td><b>${has?fmt(t):"–"}</b></td><td>${has?fmt(t*sh/100):"–"}</td><td>${has&&eo[p+"N"]?fmt(t/eo[p+"N"]):"–"}</td></tr>`};
+  const drvU=OPS_UI[4],asU=OPS_UI[5];
+  const sD=rowT("drv"),sA=rowT("asst"),anyS=anyV(["drvN","drvBase","drvAllow","drvBonus","asstN","asstBase","asstAllow","asstBonus"]);
+  const heads=(eo.drvN||0)+(eo.asstN||0),preS=sD+sA,postS=sD*opsShare(drvU)/100+sA*opsShare(asU)/100;
+  $("#vStaff").innerHTML=`<div class="scroll"><table class="dt"><thead><tr><th class="l">${mLbl(m)} · NPP nhập</th><th>Số người</th><th>Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>Tổng trước share</th><th>Sau share</th><th>BQ / người</th></tr></thead><tbody>
+    ${sRow("Tài xế","drv",drvU)}${sRow("Phụ xế","asst",asU)}
+    <tr class="sumrow"><td class="l"><b>Tổng ${mLbl(m)}</b></td><td>${heads?fmt(heads):"–"}</td><td colspan="3"></td><td><b>${anyS?fmt(preS):"–"}</b></td><td><b>${anyS?fmt(postS):"–"}</b></td><td>${anyS&&heads?fmt(preS/heads):"–"}</td></tr>
+    <tr><td class="l"><b>${r?mLbl(addM(m,-1)):"M-2"} · PnL Detail</b><small>Delivery &amp; Driver</small></td><td>${tR?fmt(tR.drivers)+" <small class=\"muted\">TMS</small>":"–"}</td><td colspan="4"></td><td><b>${rD!=null?fmt(rD):"–"}</b></td><td>${rD&&tR&&tR.driverDays?fmt(rD/(tR.driverDays/26))+' <small class="muted">/FTE</small>':"–"}</td></tr>
+    <tr><td class="l"><b>Chênh lệch</b></td><td colspan="5"></td><td>${anyS&&rD?`<span class="${Math.abs(postS-rD)/rD>.1?"d-dn":""}">${postS-rD>0?"+":""}${fmt(postS-rD)} (${postS-rD>0?"+":""}${fmt((postS-rD)/rD*100,1)}%)</span>`:"–"}</td><td></td></tr>
   </tbody></table></div>
-  <p class="hint">Tài xế có giao hàng trên TMS: ${tR?`${mLbl(addM(m,-1))} ${fmt(tR.drivers)} người (${fmt(tR.driverDays/26,1)} FTE)`:"–"} · ${tM?`${mLbl(m)} ${fmt(tM.drivers)} người (${fmt(tM.driverDays/26,1)} FTE)`:"–"}. Chi phí/thùng ${mLbl(m)}: ${tot!=null&&tM?fmt(tot/tM.cases):"–"} đ · ${r?mLbl(addM(m,-1)):"M-2"}: ${rD&&tR?fmt(rD/tR.cases):"–"} đ.</p>
-  <div class="vfinal"><span>Final chi phí nhân sự giao hàng ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="driver" value="${fd!=null?fmt(fd):""}" placeholder="${tot!=null?fmt(tot):"nhập số final"}"><span class="muted">Để trống = dùng số NPP nhập</span></div>`;
+  <p class="hint">Tài xế có giao hàng trên TMS: ${tR?`${mLbl(addM(m,-1))} ${fmt(tR.drivers)} người (${fmt(tR.driverDays/26,1)} FTE)`:"–"} · ${tM?`${mLbl(m)} ${fmt(tM.drivers)} người (${fmt(tM.driverDays/26,1)} FTE)`:"–"}. Chi phí/thùng ${mLbl(m)} (sau share): ${anyS&&tM?fmt(postS/tM.cases):"–"} đ · ${r?mLbl(addM(m,-1)):"M-2"}: ${rD&&tR?fmt(rD/tR.cases):"–"} đ.</p>`;
+  // Nhân sự Quản lý, Kế toán, Thủ kho, DSM
+  const uW=OPS_UI.find(u=>u.id==="whKeeper"),uD=OPS_UI.find(u=>u.id==="dsm"),uM=OPS_UI.find(u=>u.id==="mgmt");
+  const aT=rowT("acct"),dT=rowT("dsm"),gT=eo.mgmt!=null&&eo.mgmt!==""?+eo.mgmt:0,anyM=anyV(["acctN","acctBase","acctAllow","acctBonus","dsmN","dsmBase","dsmAllow","dsmBonus","mgmt"]);
+  const preM=aT+dT+gT,postM=aT*opsShare(uW)/100+dT*opsShare(uD)/100+gT*opsShare(uM)/100;
+  const rM=r?(r.whKeeper||0)+(r.dsm||0)+(r.mgmt||0):null,dM=anyM&&rM?postM-rM:null;
+  $("#vMgmt").innerHTML=`<div class="scroll"><table class="dt"><thead><tr><th class="l">${mLbl(m)} · NPP nhập</th><th>Số người</th><th>Lương căn bản</th><th>Phụ cấp</th><th>Thưởng</th><th>Tổng trước share</th><th>Sau share</th><th>BQ / người</th></tr></thead><tbody>
+    ${sRow("Kế toán, Thủ kho","acct",uW)}${sRow("Nhân viên DSM","dsm",uD)}
+    <tr><td class="l"><b>Quản lý</b><small>Tổng lương</small></td><td>–</td><td>–</td><td>–</td><td>–</td><td>${inpO("mgmt")}</td><td>${anyV(["mgmt"])?fmt(gT*opsShare(uM)/100):"–"}</td><td>–</td></tr>
+    <tr class="sumrow"><td class="l"><b>Tổng ${mLbl(m)}</b></td><td colspan="4"></td><td><b>${anyM?fmt(preM):"–"}</b></td><td><b>${anyM?fmt(postM):"–"}</b></td><td></td></tr>
+    <tr><td class="l"><b>${r?mLbl(addM(m,-1)):"M-2"} · PnL Detail</b><small>Kế toán, Thủ kho + DSM + Quản lý</small></td><td colspan="4"></td><td><b>${rM!=null?fmt(rM):"–"}</b></td><td></td><td></td></tr>
+    <tr><td class="l"><b>Chênh lệch</b></td><td colspan="5"></td><td>${dM!=null?`<span class="${Math.abs(dM)/rM>.1?"d-dn":""}">${dM>0?"+":""}${fmt(dM)} (${dM>0?"+":""}${fmt(dM/rM*100,1)}%)</span>`:"–"}</td><td></td></tr>
+  </tbody></table></div>`;
 }
 document.addEventListener("change",e=>{const el=e.target;if(!el.closest||!el.closest("#tab-verify"))return;
+  if(el.dataset.ov){const k=okey();S.fin[k]=S.fin[k]||{};S.fin[k].ops=S.fin[k].ops||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k].ops[el.dataset.ov];else S.fin[k].ops[el.dataset.ov]=v;LS.set("fin",S.fin);refreshDerived();return}
   if(el.dataset.fin){const k=okey();S.fin[k]=S.fin[k]||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k][el.dataset.fin];else S.fin[k][el.dataset.fin]=v;LS.set("fin",S.fin);refreshDerived();return}
   if(el.dataset.fuel){S.fuel=S.fuel||{};S.fuel[el.dataset.fuel]=S.fuel[el.dataset.fuel]||{};const v=parse(el.value);if(v)S.fuel[el.dataset.fuel][el.dataset.m]=v;else delete S.fuel[el.dataset.fuel][el.dataset.m];LS.set("fuel",S.fuel);refreshDerived();return}
   if(el.dataset.norm){S.norm[el.dataset.norm]=parse(el.value)||0;LS.set("norm2",S.norm);refreshDerived();return}
@@ -695,7 +716,7 @@ function checklist(){if(!isOpen())return "";const so=soRevenue(),miss=opsMissing
   items.push([pc>=95?"ok":"warn",`Giá bán: đã collect ${fmt(pc,0)}% sản lượng SO`]);
   items.push([miss.length?"warn":"ok",miss.length?`Chi phí vận hành còn thiếu: ${miss.join(", ")}`:"Chi phí vận hành: đã nhập đủ"]);
   items.push([creditOk()?"ok":"bad",creditOk()?`Công nợ thị trường: ${fmt(OPV("credit"))} đ`:(OPV("credit")==null?"Chưa nhập công nợ thị trường (bắt buộc)":"Công nợ thị trường chưa đạt mức tối thiểu 100 triệu")]);
-  const fc=["petro","bike","driver"].filter(k=>FIN(k)!=null).length;if(IS_ADMIN)items.push([fc===3?"ok":"warn",`Verify data: đã chốt ${fc}/3 mục chi phí (xăng xe tải, xe máy, nhân sự)`]);
+  const fc=[FIN("petro")!=null,FIN("bike")!=null,Object.keys(ovOps()).some(k=>/^(drv|asst)/.test(k))].filter(Boolean).length;if(IS_ADMIN)items.push([fc===3?"ok":"warn",`Verify data: đã chốt ${fc}/3 mục chi phí (xăng xe tải, xe máy, nhân sự)`]);
   const sent=(S.ops[okey()]||{}).sentAt;items.push([sent?"ok":"warn",sent?`Đã gửi về hệ thống lúc ${tLbl(sent)}`:"Chưa gửi về hệ thống: bấm Hoàn tất ở tab Chi phí vận hành"]);
   const usingRef=["depTruck_v","depFork_v","depTools_v","fixed"].filter(id=>isBlank(id)&&$("#"+id).dataset.ref);
   if(usingRef.length)items.push(["warn",`Khấu hao / tài sản còn lại đang lấy từ tab Khấu hao · ${mLbl(mon())}${depReport(cur().id,mon()).n?"":" (chưa có sổ TSCĐ, lấy số tháng trước)"}`]);
