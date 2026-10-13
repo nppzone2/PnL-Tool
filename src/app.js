@@ -114,6 +114,12 @@ function updMonNote(){const el=$("#monNote");if(!el)return;const dm=defMon(Objec
   if(!dm||mon()===dm){el.hidden=true;el.innerHTML="";return}
   el.hidden=false;el.innerHTML=`<b>Lưu ý tháng nhập:</b> bạn đang chọn <b>${mLbl(mon())}</b>. Tháng mặc định là ${mLbl(dm)} (M-1). Kiểm tra đúng tháng trước khi nhập và bấm Hoàn tất.`}
 
+// Dòng chi phí trong file PnL GIS Input (nhóm "3. Operation cost"): Val01 = Qty, Val02 = VND, Val03 = % share
+// Dòng thị trường và vốn: Val01 = VND, Val02 = %
+const GIS_COST_MAP=[[/^Depreciation truck/,"depTruck","ops"],[/^Depreciation Forklift/,"depFork","ops"],[/^Depreciation\/Tools/,"depTools","ops"],[/^Transport Petro fees/,"petro","ops"],[/^Transport fees \(Bike\)/,"bike","ops"],[/^Transporation other fee/,"trOther","ops"],[/^Hiring Warehouse/,"hireWh","ops"],[/^Delivery & Driver/,"driver","ops"],[/^WH Keeper/,"whKeeper","ops"],[/^DSM cost/,"dsm","ops"],[/^Management cost/,"mgmt","ops"],[/^Office expenses/,"office","ops"],[/^Other fees/,"otherFee","ops"],[/^Wholesales/,"mkWs","mk"],[/^Retailers/,"mkRt","mk"],[/^Others - (Chiết|CK)/,"mkOt","mk"],[/^Interest expenses/,"capInt","mk"],[/^Bad debt/,"capBad","mk"],[/^Others - Chi phí vốn/,"capOt","mk"]];
+const gisCostKey=name=>{const hit=GIS_COST_MAP.find(([re])=>re.test(name));return hit?{k:hit[1],kind:hit[2]}:null};
+// Chi phí của một NPP trong một tháng P&L lấy từ file GIS (null nếu file không có dòng nào của tháng đó)
+const gisCostsFor=(dis,m)=>((S.gis.costs||{})[dis]||{})[m]||null;
 function loadNpp(){
   const n=cur(),m=n.months[mon()],V=m.vol;
   set("totVol",V);set("totBuy",m.cogs/V);set("totSell",m.rev/V);set("discWs",m.disc/V);
@@ -121,6 +127,11 @@ function loadNpp(){
   MKS.forEach(o=>{set(o[0]+"_v",m[o[0]]||"");set(o[0]+"_p","")});
   ["cdAmt","cdInt","dip","oiOther"].forEach(k=>set(k,m[k]));set("cit",m.cit);
   ICS.forEach(o=>set(o[0],m[o[0]]));
+  const gc=!m.open&&gisCostsFor(n.id,mon());
+  if(gc){ // tháng đã chốt: Qty, VND, % share lấy từ GIS input; dòng không có trong file để trống
+    OPS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_q",g.q??"");set(o[0]+"_v",g.v??"");set(o[0]+"_s",g.v?(g.s??100):"")});
+    MKS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_v",g.v??"");set(o[0]+"_p",g.p??"")});
+  }
   set("wDays",26);set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
   $("#autoCur").checked=!!m.open&&siAmount(n.id,mon())!=null;$("#autoCred").checked=false;$("#autoCred").closest(".arow").hidden=true;
   document.querySelectorAll("input[data-ref]").forEach(el=>{delete el.dataset.ref;el.placeholder=""});
@@ -423,8 +434,13 @@ $("#fileSo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f
 $("#fileGis").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#gisStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=findHdr(rows,["Discode","Name","Val01"]);if(h<0)throw new Error("Không thấy các cột Discode, Name, Val01");
     const H=rows[h],ix=k=>H.indexOf(k),iD=ix("Discode"),iN=ix("Name"),i1=ix("Val01"),i2=ix("Val02"),iT=ix("InputDate"),iG=ix("GroupLvl01");
-    const prices={},fuelG={};let n=0,nf=0;const i3=ix("Val03");
+    const prices={},fuelG={},costs={};let n=0,nf=0,nc=0;const i3=ix("Val03");
     for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||!r[iN])continue;const name=String(r[iN]),m=name.match(/^\s*([A-Z0-9]+)\s+-\s+/);
+      const cg=String(r[iG]||"");if(/^3\./.test(cg)&&iT>=0){const ck=gisCostKey(name);if(ck){const d=toDate(r[iT]),pm=d&&ym(d)?addM(ym(d),-1):null;
+        if(pm){const dis=String(r[iD]),slot=((costs[dis]=costs[dis]||{})[pm]=costs[dis][pm]||{}),t=+d;
+          if(!slot[ck.k]||slot[ck.k].t<=t){const v1=parseNum(r[i1]),v2=parseNum(r[i2]),v3=i3>=0&&r[i3]!=null&&r[i3]!==""?parseNum(r[i3]):null;
+            slot[ck.k]=ck.kind==="ops"?{q:v1,v:v2,s:v3,t}:{v:v1,p:v2,t}}
+          nc++}}continue}
       const fk=/^\s*Transport Petro fees/i.test(name)?"petro":/^\s*Transport fees \(Bike\)/i.test(name)?"bike":null;
       if(fk){const d=toDate(r[iT]),pm=d&&ym(d)?addM(ym(d),-1):null;if(pm){const q=parseNum(r[i1]),p=parseNum(r[i2]),sh=i3>=0&&r[i3]!=null&&r[i3]!==""?parseNum(r[i3]):100;
         if(q||p){const slot=((fuelG[String(r[iD])]=fuelG[String(r[iD])]||{})[pm]=fuelG[String(r[iD])][pm]||{});if(!slot[fk]||slot[fk].t<=+d){slot[fk]={q,p,s:sh||100,t:+d};nf++}}}continue}
@@ -433,8 +449,8 @@ $("#fileGis").addEventListener("change",async e=>{const f=e.target.files[0];if(!
       const d=toDate(r[iT]),pm=d&&ym(d)?addM(ym(d),-1):null;if(!pm)continue;
       const dis=String(r[iD]),sku=m[1],ws=parseNum(r[i1]),rt=parseNum(r[i2]);if(!ws&&!rt)continue;
       const slot=((prices[dis]=prices[dis]||{})[pm]=prices[dis][pm]||{});const t=+d;if(!slot[sku]||slot[sku].t<=t)slot[sku]={ws,rt,t};n++}
-    if(!n&&!nf)throw new Error("File không có dòng giá bán (Name dạng “HS - Heineken…”, có Val01/Val02). Hãy export đầy đủ, không giới hạn 1.000 dòng.");
-    S.gis={file:f.name,prices,fuel:fuelG};LS.set("gis",S.gis);status(st,"ok",`Đã nạp ${fmt(n)} dòng giá của ${Object.keys(prices).length} NPP, ${fmt(nf)} dòng Petro fee (số lít × giá).`);refreshAll();
+    if(!n&&!nf&&!nc)throw new Error("File không có dòng giá bán (Name dạng “HS - Heineken…”, có Val01/Val02). Hãy export đầy đủ, không giới hạn 1.000 dòng.");
+    S.gis={file:f.name,prices,fuel:fuelG,costs};LS.set("gis",S.gis);status(st,"ok",`Đã nạp ${fmt(n)} dòng giá của ${Object.keys(prices).length} NPP, ${fmt(nf)} dòng Petro fee (số lít × giá), ${fmt(nc)} dòng chi phí của ${Object.keys(costs).length} NPP.`);refreshAll();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#fileAmt").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#amtStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=rows.findIndex(r=>r&&r.map(String).some(x=>/^(Distributor_ID|Seller_ID)$/.test(x)));if(h<0)throw new Error("Không thấy cột Distributor_ID");
