@@ -100,9 +100,10 @@ $("#oiB").innerHTML=OIS.map(row).join("");$("#icB").innerHTML=`<details class="a
 function fillMonths(keep){const n=cur(),ms=Object.keys(n.months).sort();
   $("#selMon").innerHTML=ms.map(m=>`<option value="${m}">${mLbl(m)}${n.months[m].open?" · chưa chốt":""}</option>`).join("");
   const dm=defMon(ms);
-  $("#selMon").value=keep&&ms.includes(keep)?keep:(dm||(S.so&&ms.includes(S.so.month)?S.so.month:ms[ms.length-1]));updMonNote()}
+  $("#selMon").value=keep&&ms.includes(keep)?keep:(dm||(S.so&&ms.includes(S.so.month)?S.so.month:ms[ms.length-1]));CONF_MON=mon();updMonNote()}
 // NPP: tháng mặc định là M-1 so với tháng hiện tại; Admin giữ cách chọn cũ
 const mPrev=()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
+let CONF_MON=null; // tháng đã được xác nhận; Hủy trong hộp thoại sẽ quay về tháng này
 function defMon(ms){if(IS_ADMIN)return null;const m1=mPrev();return ms.includes(m1)?m1:(ms.filter(m=>m<=m1).pop()||null)}
 // Box lưu ý khi NPP chọn tháng khác tháng mặc định
 function updMonNote(){const el=$("#monNote");if(!el)return;const dm=defMon(Object.keys(cur().months).sort());
@@ -812,7 +813,14 @@ function focusNext(t){const pane=document.getElementById("tab-"+t);if(!pane)retu
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{goTab(b.dataset.tab);focusNext(b.dataset.tab)}));
 $("#selNpp").addEventListener("change",()=>{fillMonths(mon());loadNpp()});
 $("#selZone").addEventListener("change",()=>{fillNpp(+$("#selNpp").value);fillMonths(mon());loadNpp()});
-$("#selMon").addEventListener("change",()=>{updMonNote();loadNpp()});
+// NPP chọn tháng khác M-1: hỏi xác nhận; Hủy thì quay lại tháng đã chọn trước đó
+function askMonth(m,dm){const d=$("#monDlg");$("#monDlgTxt").innerHTML=`Bạn đang chọn tháng <b>${mLbl(m)}</b>, khác tháng mặc định <b>${mLbl(dm)}</b> (M-1). Tiếp tục nhập số liệu cho ${mLbl(m)}?`;
+  return new Promise(res=>{let fin=false;const end=v=>{if(fin)return;fin=true;res(v);if(d.open)d.close()};
+    $("#monDlgOk").onclick=()=>end(true);$("#monDlgCancel").onclick=()=>end(false);d.oncancel=()=>end(false);
+    d.showModal();$("#monDlgCancel").focus()})}
+$("#selMon").addEventListener("change",async()=>{const m=mon(),dm=defMon(Object.keys(cur().months).sort());
+  if(dm&&m!==dm&&!(await askMonth(m,dm))){$("#selMon").value=CONF_MON||dm;updMonNote();return}
+  CONF_MON=m;updMonNote();loadNpp()});
 $("#f").addEventListener("submit",e=>{e.preventDefault();render(calc());const o=$("#out");o.classList.remove("flash");void o.offsetWidth;o.classList.add("flash");
   if(window.innerWidth<900)o.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})});
 $("#reset").onclick=loadNpp;
