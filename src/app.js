@@ -41,6 +41,10 @@ const GRP_CRED=NPP.reduce((a,n)=>a+n.credDays,0)/NPP.length;
 // ---- helpers
 const cur=()=>NPP[+$("#selNpp").value];
 const mon=()=>$("#selMon").value;
+// Một phần lỗi không được làm trống cả trang: báo lỗi ngay trong khung P&L để dễ kiểm tra
+function showErr(e){const m=(e&&e.message)||String(e);console.error(e);const o=$("#out");if(o&&!o.innerHTML.trim())o.innerHTML=`<p class="errtxt">Chưa hiển thị được số liệu: ${esc(m)}. Thử chọn lại NPP hoặc tháng; nếu vẫn lỗi, gửi dòng thông báo này cho người phát triển.</p>`}
+function safe(f){try{return f()}catch(e){showErr(e)}}
+window.addEventListener("error",e=>showErr(e.error||e.message));
 const parseNum=v=>{if(typeof v==="number")return v;let s=String(v??"").replace(/[^\d.,-]/g,"");if(!s)return 0;
   if(/^-?\d{1,3}([.,]\d{3})+$/.test(s))s=s.replace(/[.,]/g,"");else if(s.includes(",")&&s.includes("."))s=s.lastIndexOf(",")>s.lastIndexOf(".")?s.replace(/\./g,"").replace(",","."):s.replace(/,/g,"");else s=s.replace(",",".");
   const n=parseFloat(s);return isFinite(n)?n:0};
@@ -780,7 +784,7 @@ $("#out").addEventListener("pointerleave",lcHide);
 $("#depZone").addEventListener("change",e=>{$("#selZone").value=e.target.value;$("#selZone").dispatchEvent(new Event("change"))});
 $("#depNpp").addEventListener("change",e=>{$("#selNpp").value=e.target.value;$("#selNpp").dispatchEvent(new Event("change"))});
 
-function goTab(t){if(!tabOk(t))t="pl";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
+function goTab(t){if(!tabOk(t))t="pl";if(t==="sub"&&IS_ADMIN)safe(renderSubs);document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
   document.querySelectorAll(".tabpane").forEach(p=>p.hidden=p.id!=="tab-"+t);window.scrollTo({top:0})}
 // Giữ con trỏ khi bảng được vẽ lại sau khi đổi giá trị: nhấn Tab sang ô kế tiếp thì không bị đưa về đầu trang
 // Ô nằm trong mục đang đóng (details chưa mở) không nhận được focus nên bỏ qua
@@ -826,7 +830,7 @@ $("#selMon").addEventListener("change",async()=>{const m=mon(),dm=defMon(Object.
 $("#f").addEventListener("submit",e=>{e.preventDefault();render(calc());const o=$("#out");o.classList.remove("flash");void o.offsetWidth;o.classList.add("flash");
   if(window.innerWidth<900)o.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})});
 $("#reset").onclick=loadNpp;
-fillMonths();loadNpp();
+safe(()=>{fillMonths();loadNpp()});
 
 // ---- Đồng bộ bài nộp với hệ thống (Google Apps Script → Google Sheet)
 const tLbl=t=>new Date(t).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
@@ -872,8 +876,8 @@ $("#subT").addEventListener("click",e=>{const k=e.target.dataset&&e.target.datas
   const i=NPP.findIndex(n=>n.id===x.disId);if(i<0)return;setNpp(i);fillMonths(x.month);loadNpp();refreshAll();goTab("pl")});
 $("#subRefresh").onclick=loadSubs;$("#subMon").onchange=renderSubs;$("#subZone").onchange=renderSubs;
 $("#subXlsx").onclick=()=>exportRecon("Bai_nop_"+$("#subMon").value.replace("-",""),subsRows(SUBS.filter(x=>x.month===$("#subMon").value&&(!$("#subZone").value||zoneOfDis(x.disId)===$("#subZone").value))),false);
-loadFA();
-if(IS_ADMIN&&API_URL)loadSubs();else if(IS_ADMIN)$("#subMsg").textContent="Chưa cấu hình API_URL nên chưa nhận được bài nộp.";
+safe(loadFA);
+safe(()=>{if(IS_ADMIN&&API_URL)loadSubs();else if(IS_ADMIN)$("#subMsg").textContent="Chưa cấu hình API_URL nên chưa nhận được bài nộp."});
 
 // ===== Đối chiếu chi phí vận hành (Admin) =====
 // Dòng chi phí của một bài nộp: trước share, sau share, và số P&L hiện tại (cùng cách so với "Tham chiếu M-2")
@@ -935,7 +939,7 @@ $("#reXlsx").onclick=()=>{const z=$("#reZone").value,nid=$("#reNpp").value,f=$("
   const rows=subsRows(SUBS.filter(x=>x.month>=f&&x.month<=t&&(!z||zoneOfDis(x.disId)===z)&&(!nid||x.disId===nid)));
   exportRecon("Doi_chieu_CPVH_"+f.replace("-","")+"_"+t.replace("-",""),rows)};
 
-renderRecon();
+safe(renderRecon);
 // Ẩn tab ngoài phạm vi quyền
 document.querySelectorAll(".tabs button").forEach(b=>{if(!tabOk(b.dataset.tab)){b.hidden=true;b.style.setProperty("display","none","important")}});
 goTab("pl");
