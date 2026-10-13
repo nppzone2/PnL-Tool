@@ -268,9 +268,11 @@ function buyPrice(sku){const t=typed(sku,"BUY");if(t)return {v:t,src:"input"};co
   if(a&&a.month===mon()&&a.sku&&a.sku[cur().id]&&a.sku[cur().id][sku])return {v:Math.round(a.sku[cur().id][sku]*(S.buyVat?1+vatOf(sku):1)),src:"SI"};return null}
 // Số đầy đủ, 3 số cuối hiển thị nhỏ
 const fT=v=>{if(v==null||!isFinite(v))return "–";if(Math.round(v)===0)return "0";const neg=v<0,d=String(Math.round(Math.abs(v))),last=d.slice(-3).padStart(3,"0"),head=d.length>3?d.slice(0,-3).replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";return `${neg?"-":""}${head}${head?".":""}<span class="l3">${last}</span>`};
-function renderPriceKpi(buyT,rv){const el=$("#priceKpi");if(!el)return;const c=calc(),tr=CH.reduce((x,k)=>x+(rv[k]||0),0);
+function renderPriceKpi(buyT,rv){const el=$("#priceKpi");if(!el)return;const c=calc(),closed=!isOpen(),pr=cur().months[mon()]||{};
+  // Tháng đã chốt: không có file SO nên lấy doanh thu và giá nhập (COGS) từ P&L Detail
+  const tr=closed?(pr.rev||0):CH.reduce((x,k)=>x+(rv[k]||0),0),buy=closed?(pr.cogs||0):buyT;
   const tile=(k,v,s)=>`<div><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
-  const mk=c.g&&c.g.mk||0;el.innerHTML=tile("Tổng giá nhập",fT(buyT),"Sản lượng SO × giá nhập")+tile("Tổng doanh thu",fT(tr),"Sản lượng × giá bán theo kênh")+tile("Đầu tư thị trường",fT(mk),"Market Invest")+tile("COGS",fT(tr-buyT-mk),"Doanh thu − giá nhập − đầu tư thị trường")}
+  const mk=c.g&&c.g.mk||0;el.innerHTML=tile("Tổng giá nhập",fT(buy),closed?"COGS theo P&L Detail":"Sản lượng SO × giá nhập")+tile("Tổng doanh thu",fT(tr),closed?"Doanh thu theo P&L Detail":"Sản lượng × giá bán theo kênh")+tile("Đầu tư thị trường",fT(mk),"Market Invest")+tile("COGS",fT(tr-buy-mk),"Doanh thu − giá nhập − đầu tư thị trường")}
 function renderPrice(){
   const n=cur(),so=soFor(n.id,mon()),list=soSkus(so);
   let tot={SDIS:0,OFF:0,ON:0},rv={SDIS:0,OFF:0,ON:0},buyT=0;
