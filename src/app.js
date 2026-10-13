@@ -329,13 +329,16 @@ function gisSheet(){const rows=gisRows(),L=[];const v=id=>{const el=$("#"+id);re
   L.push({h:"5. Investment Capital / Vốn đầu tư",cols:["","","VND"]});
   [["curAcc","Current account - Tài khoản thanh toán"],["credit","Credit for Outlets - Công nợ thị trường"],["fixed","Remaing value fixed assets - Giá trị tài sản còn lại theo tỉ trọng"]].forEach(([k,n])=>L.push({n,c:[null,null,v(k)]}));
   return L}
+let GIS_HIDE=LS.get("gisHide",false); // ẩn các SKU chưa có giá ở mục 1
 function renderGis(){const L=gisSheet();let cols=3,html="";
-  L.forEach(x=>{if(x.h){const c=x.cols;html+=`<tr class="sech"><th class="l" colspan="${4-c.length}">${esc(x.h)}</th>${c.map(t=>`<th>${t}</th>`).join("")}</tr>`}
+  $("#gisHideMiss").textContent=GIS_HIDE?"Hiện tất cả dòng":"Ẩn dòng chưa có giá";
+  L.forEach(x=>{if(GIS_HIDE&&x.miss)return;if(x.h){const c=x.cols;html+=`<tr class="sech"><th class="l" colspan="${4-c.length}">${esc(x.h)}</th>${c.map(t=>`<th>${t}</th>`).join("")}</tr>`}
     else if(x.g){html+=`<tr class="subh"><td class="l" colspan="4">${esc(x.g)}</td></tr>`}
     else{const c=x.c;const cells=c.length===2?[null,...c]:c;
       html+=`<tr${x.miss?' class="miss"':""}><td class="l">${esc(x.n)}${x.extra?` <span class="chip">${x.extra}</span>`:""}</td>${cells.map((z,i)=>x.k&&i===2&&OPS_SHARED.has(x.k)?`<td><input class="v" inputmode="decimal" data-gshare="${x.k}" value="${(OPV(OPS_SHARE_ID[x.k]+"_sh")??"")!==""?fmt(OPV(OPS_SHARE_ID[x.k]+"_sh")):""}" placeholder="100%" style="max-width:90px;min-width:70px" title="Đồng bộ với %Share ở tab Chi phí vận hành"></td>`:x.k&&i===2?`<td><input class="v" inputmode="decimal" data-gshare="${x.k}" value="${z!=null?fmt(z,Math.abs(z%1)>1e-9?2:0):""}" placeholder="%" style="max-width:90px;min-width:70px"></td>`:`<td>${z==null?(c.length===2&&i===0?"":'<span class="muted">–</span>'):fmt(z,Math.abs(z%1)>1e-9?2:0)}</td>`).join("")}</tr>`}});
   $("#gisT").innerHTML=`<tbody>${html}</tbody>`;
   const miss=L.filter(x=>x.miss).length;$("#gisMiss").textContent=miss?`${miss} SKU chưa đủ giá, bổ sung ở tab Giá bán.`:"Đã đủ giá cho tất cả SKU.";}
+$("#gisHideMiss").onclick=()=>{GIS_HIDE=!GIS_HIDE;LS.set("gisHide",GIS_HIDE);renderGis()};
 $("#copyGis").onclick=async()=>{const t=gisSheet().map(x=>x.h?[x.h,...(x.cols.length===2?["",...x.cols]:x.cols)].join("\t"):x.g?x.g:[x.n,...x.c.map(z=>z==null?"":Math.round(z*100)/100)].join("\t")).join("\n");
   try{await navigator.clipboard.writeText(t);$("#copyMsg").textContent="Đã copy, dán vào Excel."}catch(e){$("#copyMsg").textContent="Trình duyệt chặn copy, hãy bôi đen bảng và copy thủ công."}};
 
