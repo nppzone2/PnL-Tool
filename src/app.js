@@ -353,6 +353,23 @@ $("#gisHideMiss").onclick=()=>{GIS_HIDE=!GIS_HIDE;LS.set("gisHide",GIS_HIDE);ren
 $("#copyGis").onclick=async()=>{const t=gisSheet().map(x=>x.h?[x.h,...(x.cols.length===2?["",...x.cols]:x.cols)].join("\t"):x.g?x.g:[x.n,...x.c.map(z=>z==null?"":Math.round(z*100)/100)].join("\t")).join("\n");
   try{await navigator.clipboard.writeText(t);$("#copyMsg").textContent="Đã copy, dán vào Excel."}catch(e){$("#copyMsg").textContent="Trình duyệt chặn copy, hãy bôi đen bảng và copy thủ công."}};
 
+// Tải Excel: tab Giá bán (mục 1) và tab Chi phí vận hành (mục 3) của GIS Input
+$("#gisXlsx").onclick=async()=>{const msg=$("#copyMsg");msg.textContent="Đang tạo file…";
+  try{const X=await loadXlsx(),wb=X.utils.book_new(),n=cur(),m=mon(),L=gisSheet();
+    const nv=z=>z==null||z===""||(typeof z==="number"&&!isFinite(z))?null:z;
+    const part=(from,to)=>{const i=L.findIndex(x=>x.h&&x.h.startsWith(from)),j=L.findIndex(x=>x.h&&x.h.startsWith(to));return L.slice(i+1,j<0?undefined:j)};
+    const T={font:{bold:true,sz:14,color:{rgb:"0B4F2A"}}};
+    const S1=[xrow([`Giá bán Sales out · ${n.code} · ${mLbl(m)}`],T),[],xrow(["SKU","Wholesale","Retail","Ghi chú"],HEAD)];
+    part("1.","2.").forEach(x=>{if(x.n)S1.push([x.n,nv(x.c[0]),nv(x.c[1]),x.extra||(x.miss?"Thiếu giá":null)])});
+    const S2=[xrow([`Chi phí vận hành · ${n.code} · ${mLbl(m)}`],T),[],xrow(["Hạng mục","Qty","VND","% share"],HEAD)];
+    part("3.","4.").forEach(x=>{if(x.g)S2.push(xrow([x.g],SUB));else if(x.n)S2.push([x.n,...x.c.map(nv)])});
+    X.utils.book_append_sheet(wb,mkSheet(X,S1,[62,16,16,18]),"Gia ban");
+    X.utils.book_append_sheet(wb,mkSheet(X,S2,[62,14,18,14]),"Chi phi van hanh");
+    const buf=X.write(wb,{bookType:"xlsx",type:"array"});
+    await saveBlob(`GIS_${n.code}_${m.replace("-","")}.xlsx`,new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+    msg.textContent="Đã lưu file.";
+  }catch(e){msg.textContent=e&&e.code==="declined"?"Đã huỷ lưu file.":"Không tạo được file: "+(e&&e.message||e)}};
+
 // ---- Compare tab
 const TH=2000;
 const rt1k=v=>v?Math.round(v/1000)*1000:null;
