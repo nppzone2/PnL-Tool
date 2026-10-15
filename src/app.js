@@ -574,7 +574,9 @@ const SO_SUM_DEFAULT={"2026-09":SO_SEP_SUM};
 function soSum(m){const all=Object.assign({},SO_SUM_DEFAULT,S.soSum||{});return all[m]||null}
 const TMS_SUM_DEFAULT=TMS_SUM_EMB;
 function tmsSum(m){const all=Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{});return all[m]||null}
-const fuel=(v,m)=>((S.fuel||{})[v]||{})[m]||null;
+// Giá xăng dầu độc lập theo từng NPP: lưu theo "DisID|loại xe". Giá chung cũ (không có DisID) chỉ dùng khi NPP chưa nhập giá riêng.
+const fuelKey=v=>cur().id+"|"+v;
+const fuel=(v,m)=>{const own=((S.fuel||{})[fuelKey(v)]||{})[m];return own!=null?own:(((S.fuel||{})[v]||{})[m]||null)};
 const NORM_DEFAULT={"Truck 1 Ton":12,"Truck 1.25 Ton":12.5,"Truck 1.5 Ton":13,"Truck 2 Ton":14.5,"Truck 2.5 Ton":16,"Truck 3.5 Ton":18,"Truck 5 Ton":21,"Truck 8 Ton":26,"Truck 10 Ton":29,"Truck 15 Ton":35};
 S.norm=Object.assign({},NORM_DEFAULT,LS.get("norm2",{}));S.kmF=LS.get("kmF",1.3);
 const normOf=c=>S.norm[c]??15;
@@ -736,7 +738,7 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
 document.addEventListener("change",e=>{const el=e.target;if(!el.closest||!el.closest("#tab-verify"))return;
   if(el.dataset.ov){const k=okey();S.fin[k]=S.fin[k]||{};S.fin[k].ops=S.fin[k].ops||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k].ops[el.dataset.ov];else S.fin[k].ops[el.dataset.ov]=v;LS.set("fin",S.fin);refreshDerived();return}
   if(el.dataset.fin){const k=okey();S.fin[k]=S.fin[k]||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k][el.dataset.fin];else S.fin[k][el.dataset.fin]=v;LS.set("fin",S.fin);refreshDerived();return}
-  if(el.dataset.fuel){S.fuel=S.fuel||{};S.fuel[el.dataset.fuel]=S.fuel[el.dataset.fuel]||{};const v=parse(el.value);if(v)S.fuel[el.dataset.fuel][el.dataset.m]=v;else delete S.fuel[el.dataset.fuel][el.dataset.m];LS.set("fuel",S.fuel);refreshDerived();return}
+  if(el.dataset.fuel){S.fuel=S.fuel||{};const fk=fuelKey(el.dataset.fuel);S.fuel[fk]=S.fuel[fk]||{};const v=parse(el.value);if(v)S.fuel[fk][el.dataset.m]=v;else delete S.fuel[fk][el.dataset.m];LS.set("fuel",S.fuel);refreshDerived();return}
   if(el.dataset.norm){S.norm[el.dataset.norm]=parse(el.value)||0;LS.set("norm2",S.norm);refreshDerived();return}
   if(el.id==="kmF"){S.kmF=parse(el.value)||1;LS.set("kmF",S.kmF);refreshDerived();return}
   if(el.dataset.fws||el.dataset.frt){const k=okey();S.fin[k]=S.fin[k]||{};const P=S.fin[k].prices=S.fin[k].prices||{};const sku=el.dataset.fws||el.dataset.frt,f=el.dataset.fws?"ws":"rt";P[sku]=P[sku]||{};
