@@ -892,6 +892,7 @@ $("#f").addEventListener("submit",e=>{e.preventDefault();render(calc());const o=
   if(window.innerWidth<900)o.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})});
 $("#reset").onclick=loadNpp;
 safe(()=>{fillMonths();loadNpp()});
+syncMine();
 
 // ---- Đồng bộ bài nộp với hệ thống (Google Apps Script → Google Sheet)
 const tLbl=t=>new Date(t).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
@@ -907,11 +908,19 @@ function buildSubmission(){const n=cur(),key=okey(),o=S.ops[key]||{},r=calc(),co
   const ops={...o};delete ops.sentAt;delete ops._at;
   return{key,disId:n.id,code:n.code,area:n.area,month:mon(),
     summary:{vol:r.V,rev:r.rev,opex:r.opex,pat:r.pat,roi:r.roi,credit:o.credit,costs,skus:Object.keys(pr).length},
-    data:{ops,prices:pr}}}
+    data:{ops,prices:pr,fin:S.fin[key]||{},fuel:{truck:S.fuel[fuelKey("truck")]||{}}}}}
 // Nạp bài nộp vào state cục bộ (chỉ khi mới hơn bản đang có)
 function applySub(x,force){const loc=S.ops[x.key]||{},seen=Math.max(loc._at||0,loc.sentAt||0);
   if(!force&&x.at<=seen)return false;
-  S.ops[x.key]={...(x.data.ops||{}),done:true,_at:x.at,sentAt:x.at};S.prices[x.key]=x.data.prices||{};return true}
+  S.ops[x.key]={...(x.data.ops||{}),done:true,_at:x.at,sentAt:x.at};S.prices[x.key]=x.data.prices||{};
+  if(x.data.fin)S.fin[x.key]=x.data.fin;
+  if(x.data.fuel&&x.data.fuel.truck){const fk=x.disId+"|truck";S.fuel=S.fuel||{};S.fuel[fk]={...(S.fuel[fk]||{}),...x.data.fuel.truck}}
+  return true}
+// NPP đăng nhập trên máy khác: nạp lại bài nộp đã gửi của chính NPP đó (theo từng tháng)
+async function syncMine(){if(IS_ADMIN||!API_URL||!window.__AUTH)return;
+  try{let k=0;for(const m of Object.keys(cur().months)){const j=await api("get",{key:cur().id+"|"+m});if(j.item&&applySub(j.item))k++}
+    if(k){LS.set("ops",S.ops);LS.set("prices",S.prices);LS.set("fin",S.fin);LS.set("fuel",S.fuel);fillMonths(mon());loadNpp();refreshAll()}}
+  catch(e){console.warn("Không nạp lại được bài nộp:",e.message)}}
 let SUBS=[];
 async function loadSubs(){if(!IS_ADMIN)return;const msg=$("#subMsg");msg.textContent="Đang tải…";
   try{const j=await api("list",{});SUBS=j.items||[];let k=0;SUBS.forEach(x=>{if(applySub(x))k++});
