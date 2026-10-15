@@ -357,12 +357,15 @@ $("#copyGis").onclick=async()=>{const t=gisSheet().map(x=>x.h?[x.h,...(x.cols.le
 $("#nppXlsx").onclick=async()=>{const msg=$("#xMsg");msg.textContent="Đang tạo file…";
   try{const X=await loadXlsx(),wb=X.utils.book_new(),n=cur(),m=mon(),T={font:{bold:true,sz:14,color:{rgb:"0B4F2A"}}};
     const nv=z=>z==null||z===""||(typeof z==="number"&&!isFinite(z))?null:z;
-    const pr=S.prices[pkey()]||{},skus=Object.keys(pr).sort();
+    const pr=S.prices[pkey()]||{},skus=Object.keys(pr).sort(),o=S.ops[okey()]||{};
+    const hasOps=Object.keys(o).some(k=>!["done","sentAt","_at"].includes(k)&&o[k]!=null&&o[k]!=="");
+    if(!skus.length&&!hasOps){msg.textContent=`NPP chưa gửi số liệu cho ${mLbl(m)}, chưa có file để tải.`;return}
     const S1=[xrow([`Giá bán NPP nhập · ${n.code} · ${mLbl(m)}`],T),[],xrow(["SKU","Tên","SDIS","OFF","ON"],HEAD)];
     skus.forEach(sku=>S1.push([sku,SKU_NAME[sku]||"",...CH.map(c=>nv(typed(sku,c)))]));
     if(!skus.length)S1.push(["Chưa có giá nhập trong tháng này"]);
     X.utils.book_append_sheet(wb,mkSheet(X,S1,[12,44,14,14,14]),"Giá bán");
-    const o=S.ops[okey()]||{},S2=[xrow([`Chi phí vận hành NPP nhập · ${n.code} · ${mLbl(m)}`],T),[]];
+    const S2=[xrow([`Chi phí vận hành NPP nhập · ${n.code} · ${mLbl(m)}`],T),[]];
+    if(!hasOps)S2.push(["Chưa có số chi phí NPP nhập cho tháng này."],[]);
     OPS_UI.forEach(u=>{S2.push(xrow([u.t,"",""],SEC));u.f.forEach(([k,lbl])=>S2.push([lbl,nv(o[k])]));
       const full=u.f.every(([k])=>o[k]!=null&&o[k]!=="");if(u.tot&&full)S2.push(xrow(["Tổng",nv(u.tot(o))],BOLD));});
     X.utils.book_append_sheet(wb,mkSheet(X,S2,[52,18,14]),"Chi phí");
