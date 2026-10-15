@@ -353,22 +353,30 @@ $("#gisHideMiss").onclick=()=>{GIS_HIDE=!GIS_HIDE;LS.set("gisHide",GIS_HIDE);ren
 $("#copyGis").onclick=async()=>{const t=gisSheet().map(x=>x.h?[x.h,...(x.cols.length===2?["",...x.cols]:x.cols)].join("\t"):x.g?x.g:[x.n,...x.c.map(z=>z==null?"":Math.round(z*100)/100)].join("\t")).join("\n");
   try{await navigator.clipboard.writeText(t);$("#copyMsg").textContent="Đã copy, dán vào Excel."}catch(e){$("#copyMsg").textContent="Trình duyệt chặn copy, hãy bôi đen bảng và copy thủ công."}};
 
-// Tải Excel số liệu do NPP tự nhập: Giá bán (tab Collect price) và Chi phí (tab Chi phí vận hành)
+// Tải Excel số liệu do NPP tự nhập, bố cục giống màn hình: Collect price và Chi phí vận hành
 $("#nppXlsx").onclick=async()=>{const msg=$("#xMsg");msg.textContent="Đang tạo file…";
-  try{const X=await loadXlsx(),wb=X.utils.book_new(),n=cur(),m=mon(),T={font:{bold:true,sz:14,color:{rgb:"0B4F2A"}}};
+  try{const X=await loadXlsx(),wb=X.utils.book_new(),n=cur(),m=mon(),T={font:{bold:true,sz:14,color:{rgb:"0B4F2A"}}},GRP={font:{bold:true},fill:{fgColor:{rgb:"EEF3EF"}}};
     const nv=z=>z==null||z===""||(typeof z==="number"&&!isFinite(z))?null:z;
     const pr=S.prices[pkey()]||{},skus=Object.keys(pr).sort(),o=S.ops[okey()]||{};
     const hasOps=Object.keys(o).some(k=>!["done","sentAt","_at"].includes(k)&&o[k]!=null&&o[k]!=="");
     if(!skus.length&&!hasOps){msg.textContent=`NPP chưa gửi số liệu cho ${mLbl(m)}, chưa có file để tải.`;return}
-    const S1=[xrow([`Giá bán NPP nhập · ${n.code} · ${mLbl(m)}`],T),[],xrow(["SKU","Tên","SDIS","OFF","ON"],HEAD)];
-    skus.forEach(sku=>S1.push([sku,SKU_NAME[sku]||"",...CH.map(c=>nv(typed(sku,c)))]));
+    // Sheet 1 - Collect price: cùng cột với bảng trên màn hình
+    const S1=[xrow([`Collect price · ${n.code} · ${mLbl(m)}`],T),[],xrow(["","","Giá bán / thùng",""," "],GRP),xrow(["SKU","Giá nhập","Giá Sdis","Giá OFF","Giá ON"],HEAD)];
+    skus.forEach(sku=>S1.push([`${sku}${SKU_NAME[sku]?" - "+SKU_NAME[sku]:""}`,nv(typed(sku,"BUY")),nv(typed(sku,"SDIS")),nv(typed(sku,"OFF")),nv(typed(sku,"ON"))]));
     if(!skus.length)S1.push(["Chưa có giá nhập trong tháng này"]);
-    X.utils.book_append_sheet(wb,mkSheet(X,S1,[12,44,14,14,14]),"Giá bán");
-    const S2=[xrow([`Chi phí vận hành NPP nhập · ${n.code} · ${mLbl(m)}`],T),[]];
-    if(!hasOps)S2.push(["Chưa có số chi phí NPP nhập cho tháng này."],[]);
-    OPS_UI.forEach(u=>{S2.push(xrow([u.t,"",""],SEC));u.f.forEach(([k,lbl])=>S2.push([lbl,nv(o[k])]));
-      const full=u.f.every(([k])=>o[k]!=null&&o[k]!=="");if(u.tot&&full)S2.push(xrow(["Tổng",nv(u.tot(o))],BOLD));});
-    X.utils.book_append_sheet(wb,mkSheet(X,S2,[52,18,14]),"Chi phí");
+    X.utils.book_append_sheet(wb,mkSheet(X,S1,[52,16,16,16,16]),"Giá bán");
+    // Sheet 2 - Chi phí vận hành: cùng cột với bảng trên màn hình
+    const r=refM(),HD=["Hạng mục","Số lượng","Đơn giá / Lương căn bản","Phụ cấp","Thưởng","%Share","Tổng tiền "+mLbl(m),"Tham chiếu M-2","Chênh lệch"];
+    const S2=[xrow([`Chi phí vận hành · ${n.code} · ${mLbl(m)}`],T),[],xrow(HD,HEAD)];
+    let pre=0,post=0;
+    OPS_UI.forEach(u=>{const c={};u.f.forEach(([k])=>c[OP_SLOT[k]]=k);
+      const t=opsTotal(u),raw=opsRaw(u),tIn=c.t?nv(o[c.t]):null;
+      const val=sl=>c[sl]?nv(o[c[sl]]):null;
+      const rv=r?u.ref(r):null,tc=u.id==="drv"?(t!=null?t+(opsTotal(OPS_UI.find(x=>x.id==="asst"))||0):null):t,d=tc!=null&&rv?tc-rv:null;
+      if(raw!=null)pre+=raw;if(t!=null)post+=t;
+      S2.push([u.t,val("q"),val("p"),val("a"),val("b"),u.req?null:nv(o[u.id+"_sh"]),nv(tIn!=null?tIn:t),nv(rv),nv(d)]);});
+    S2.push([],xrow(["Tổng chi phí trước share",null,null,null,null,null,nv(pre)],GRP),xrow(["Tổng chi phí sau share",null,null,null,null,null,nv(post)],GRP));
+    X.utils.book_append_sheet(wb,mkSheet(X,S2,[40,12,22,14,14,10,18,18,16]),"Chi phí");
     const buf=X.write(wb,{bookType:"xlsx",type:"array"});
     await saveBlob(`NPP_${n.code}_${m.replace("-","")}.xlsx`,new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
     msg.textContent="Đã lưu file.";
