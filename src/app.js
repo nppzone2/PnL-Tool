@@ -354,7 +354,7 @@ $("#copyGis").onclick=async()=>{const t=gisSheet().map(x=>x.h?[x.h,...(x.cols.le
   try{await navigator.clipboard.writeText(t);$("#copyMsg").textContent="Đã copy, dán vào Excel."}catch(e){$("#copyMsg").textContent="Trình duyệt chặn copy, hãy bôi đen bảng và copy thủ công."}};
 
 // Tải Excel: tab Giá bán (mục 1) và tab Chi phí vận hành (mục 3) của GIS Input
-$("#gisXlsx").onclick=async()=>{const msg=$("#copyMsg");msg.textContent="Đang tạo file…";
+$("#gisXlsxTop").onclick=async()=>{const msg=$("#xMsg");msg.textContent="Đang tạo file…";
   try{const X=await loadXlsx(),wb=X.utils.book_new(),n=cur(),m=mon(),L=gisSheet();
     const nv=z=>z==null||z===""||(typeof z==="number"&&!isFinite(z))?null:z;
     const part=(from,to)=>{const i=L.findIndex(x=>x.h&&x.h.startsWith(from)),j=L.findIndex(x=>x.h&&x.h.startsWith(to));return L.slice(i+1,j<0?undefined:j)};
@@ -363,8 +363,8 @@ $("#gisXlsx").onclick=async()=>{const msg=$("#copyMsg");msg.textContent="Đang t
     part("1.","2.").forEach(x=>{if(x.n)S1.push([x.n,nv(x.c[0]),nv(x.c[1]),x.extra||(x.miss?"Thiếu giá":null)])});
     const S2=[xrow([`Chi phí vận hành · ${n.code} · ${mLbl(m)}`],T),[],xrow(["Hạng mục","Qty","VND","% share"],HEAD)];
     part("3.","4.").forEach(x=>{if(x.g)S2.push(xrow([x.g],SUB));else if(x.n)S2.push([x.n,...x.c.map(nv)])});
-    X.utils.book_append_sheet(wb,mkSheet(X,S1,[62,16,16,18]),"Gia ban");
-    X.utils.book_append_sheet(wb,mkSheet(X,S2,[62,14,18,14]),"Chi phi van hanh");
+    X.utils.book_append_sheet(wb,mkSheet(X,S1,[62,16,16,18]),"Giá bán");
+    X.utils.book_append_sheet(wb,mkSheet(X,S2,[62,14,18,14]),"Chi phí");
     const buf=X.write(wb,{bookType:"xlsx",type:"array"});
     await saveBlob(`GIS_${n.code}_${m.replace("-","")}.xlsx`,new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
     msg.textContent="Đã lưu file.";
@@ -508,7 +508,7 @@ function renderSrc(){
 // ---- Export Excel
 let DL=null;
 (async()=>{try{DL=window.claude&&window.claude.use?await window.claude.use("downloads"):null}catch(e){DL=null}
-  document.querySelectorAll(".xbtn").forEach(b=>b.hidden=false)})();
+  document.querySelectorAll(".xbtn:not(#gisXlsxTop)").forEach(b=>b.hidden=false);$("#gisXlsxTop").hidden=!IS_ADMIN})();
 // Ngoài claude.ai: tải file trực tiếp bằng trình duyệt
 function saveBlob(name,blob){if(DL)return DL.save({filename:name,data:blob});
   const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();
@@ -548,33 +548,26 @@ async function exportExcel(btn){
       xrow(["10. Profit after tax",M(r.pat),M(r.pat/V)],BOLD),["14. Investment capital",M(r.invest),null],[],
       xrow(["Gợi ý"],HEAD),...suggestions(r).map(s=>[s[2].replace(/<[^>]+>/g,"")])];
     X.utils.book_append_sheet(wb,mkSheet(X,S1,[46,20,18]),"P&L");
-    if(IS_ADMIN){
-    // 2. GIS Input
-    const S2=[xrow([`GIS Input ${n.code} · ${mLbl(m)}`],{font:{bold:true,sz:14,color:{rgb:"0B4F2A"}}}),[]];
-    gisSheet().forEach(x=>{if(x.h)S2.push(xrow([x.h,...(x.cols.length===2?["",...x.cols]:x.cols)],SEC));else if(x.g)S2.push(xrow([x.g],SUB));
-      else S2.push([x.n,...(x.c.length===2?[null,...x.c]:x.c).map(n0)])});
-    X.utils.book_append_sheet(wb,mkSheet(X,S2,[62,14,18,14]),"GIS Input");
-    }
-    // 3. Collect price
+    // Giá bán (SKU, giá collect và giá nhập)
     const so=soFor(n.id,m),S3=[xrow(["SKU","Tên","SL SDIS","SL OFF","SL ON","Giá nhập","Giá Sdis","Giá OFF","Giá ON","Retail OFF-ON (làm tròn 1.000)"],HEAD)];
     soSkus(so).forEach(sku=>{const q=so&&so[sku]||{};S3.push([sku,SKU_NAME[sku]||"",n0(q.SDIS)||null,n0(q.OFF)||null,n0(q.ON)||null,buyPrice(sku)?buyPrice(sku).v:null,...CH.map(c=>{const v=typed(sku,c),bp=buyPrice(sku);return v&&bp&&v<bp.v?{v,s:HOT}:v}),n0(rt1k(retailBlend(sku,so).v))])});
-    X.utils.book_append_sheet(wb,mkSheet(X,S3,[8,40,11,11,11,13,13,13,14]),"Gia ban");
-    if(IS_ADMIN){
-    // 4. So sánh giá
-    const S4=[xrow(["SKU","SL SO","Giá nhập","Giá bán Wholesale","Giá bán Retail","Lợi nhuận Wholesale","Lợi nhuận Retail"],HEAD)];
-    cmpRows().forEach(c=>{const h=(v,lo)=>v==null?null:lo?{v,s:HOT}:v;S4.push([c.sku,c.vol,c.buy,h(c.ws,c.loW),h(c.rt,c.loR),h(c.mW,c.loW),h(c.mR,c.loR)])});
-    S4.push([],["Ô đỏ: giá bán thấp hơn giá nhập."]);
-    X.utils.book_append_sheet(wb,mkSheet(X,S4,[8,18,9,12,12,12,13,13,13,10,10,10,18]),"Verify gia ban");
-    // 5. Channel
-    const tv=soTypeVol(n.id),S5=[xrow(["Outlet type","Channel",`SL ${n.code}`],HEAD),...Object.keys({...S.chan,...tv}).sort().map(t=>[t,S.chan[t]||"chưa gán",tv[t]||null])];
-    X.utils.book_append_sheet(wb,mkSheet(X,S5,[32,12,14]),"Channel");
-    }
+    X.utils.book_append_sheet(wb,mkSheet(X,S3,[8,40,11,11,11,13,13,13,14]),"Giá bán");
+    // Chi phí vận hành (Qty, VND, % share) lấy từ mục 3 của GIS Input
+    const LG=gisSheet(),gPart=(a,b)=>{const i=LG.findIndex(x=>x.h&&x.h.startsWith(a)),j=LG.findIndex(x=>x.h&&x.h.startsWith(b));return LG.slice(i+1,j<0?undefined:j)};
+    const SC=[xrow([`Chi phí vận hành · ${n.code} · ${mLbl(m)}`],{font:{bold:true,sz:14,color:{rgb:"0B4F2A"}}}),[],xrow(["Hạng mục","Qty","VND","% share"],HEAD)];
+    gPart("3.","4.").forEach(x=>{if(x.g)SC.push(xrow([x.g],SUB));else if(x.n)SC.push([x.n,...x.c.map(n0)])});
+    X.utils.book_append_sheet(wb,mkSheet(X,SC,[62,14,18,14]),"Chi phí");
+    // Khấu hao (VND sau share)
+    const DEP=["depTruck","depFork","depTools"],dv=k=>{const q=isBlank(k+"_q")?null:val(k+"_q"),v=isBlank(k+"_v")?null:val(k+"_v"),sh=isBlank(k+"_s")?100:val(k+"_s");return [opName(k),q,v,sh,v==null?null:(q==null?1:q)*v*sh/100]},
+      SD=[xrow([`Khấu hao · ${n.code} · ${mLbl(m)}`],{font:{bold:true,sz:14,color:{rgb:"0B4F2A"}}}),[],xrow(["Hạng mục","Qty","VND","% share","Sau share (VND)"],HEAD),...DEP.map(dv)];
+    SD.push(xrow(["Tổng khấu hao",null,null,null,DEP.reduce((a,k)=>a+(dv(k)[4]||0),0)],BOLD));
+    X.utils.book_append_sheet(wb,mkSheet(X,SD,[46,10,18,10,18]),"Khấu hao");
     const buf=X.write(wb,{bookType:"xlsx",type:"array"});
     await saveBlob(`PnL_${n.code}_${m.replace("-","")}.xlsx`,new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
     msg.textContent="Đã lưu file.";
   }catch(e){msg.textContent=e&&e.code==="declined"?"Đã huỷ lưu file.":e&&e.code==="rate_limited"?"Đang có hộp thoại lưu file, thử lại sau giây lát.":"Không tạo được file: "+(e&&e.message||e)}
   finally{btn.disabled=false}}
-document.querySelectorAll(".xbtn").forEach(b=>b.addEventListener("click",()=>exportExcel(b)));
+document.querySelectorAll(".xbtn:not(#gisXlsxTop)").forEach(b=>b.addEventListener("click",()=>exportExcel(b)));
 
 // ---- shared data helpers (SO / TMS / fuel)
 const SO_SUM_DEFAULT={"2026-09":SO_SEP_SUM};
