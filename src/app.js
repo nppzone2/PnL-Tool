@@ -320,7 +320,7 @@ $("#clearPrice").onclick=()=>{delete S.prices[pkey()];LS.set("prices",S.prices);
 
 // ---- GIS input tab (reference sheet, same layout as company form)
 function gisRows(){const n=cur(),so=soFor(n.id,mon());
-  return skuList(so,true).filter(s=>ON_FORM.has(s)||(so&&so[s])).map(sku=>{const ws=typed(sku,"SDIS"),b=retailBlend(sku,so),r=so&&so[sku]||{};
+  return skuList(so,true).filter(s=>ON_FORM.has(s)||(so&&so[s])).sort((x,y)=>x.localeCompare(y,"en",{numeric:true})).map(sku=>{const ws=typed(sku,"SDIS"),b=retailBlend(sku,so),r=so&&so[sku]||{};
     return {sku,name:`${sku} - ${SKU_NAME[sku]||""}`,ws:finPrice(sku,"ws")??ws,rt:finPrice(sku,"rt")??rt1k(b.v),share:b.share,vol:(r.SDIS||0)+(r.OFF||0)+(r.ON||0)}})}
 const GIS_OPS=[["Total Depreciation / Tổng khấu hao",["depTruck","depFork","depTools"]],["Total Transportation - Tổng CP vận chuyển",["petro","bike","trOther"]],["Total management cost - Chi phí nhân sự",["hireWh","driver","whKeeper","dsm","mgmt","office","otherFee"]]];
 const OPS_SHARED=new Set(["petro","bike","trOther","hireWh","driver"]),OPS_SHARE_ID={petro:"petro",bike:"bike",trOther:"rent",hireWh:"wh",driver:"drv"};
