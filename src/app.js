@@ -23,7 +23,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const LS={get(k,d){try{const v=localStorage.getItem("npppl:"+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("npppl:"+k,JSON.stringify(v))}catch(e){}}};
 
 // ---- state
-const S={tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:LS.get("gis",{file:null,prices:{}}),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
+const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:LS.get("gis",{file:null,prices:{}}),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
 
 // ---- benchmarks (closed months only)
 const gsum=(m,g)=>GRPKEYS[g].reduce((a,k)=>a+(m[k]||0),0);
@@ -588,6 +588,7 @@ const TMS_SUM_DEFAULT=TMS_SUM_EMB;
 function tmsSum(m){const all=Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{});return all[m]||null}
 // Giá xăng dầu độc lập theo từng NPP: lưu theo "DisID|loại xe". Giá chung cũ (không có DisID) chỉ dùng khi NPP chưa nhập giá riêng.
 const fuelKey=v=>cur().id+"|"+v;
+const fuelAdjOf=k=>+(((S.fuelAdj||{})[cur().id+"|"+k])||0);
 const fuel=(v,m)=>{const own=((S.fuel||{})[fuelKey(v)]||{})[m];return own!=null?own:(((S.fuel||{})[v]||{})[m]||null)};
 const NORM_DEFAULT={"Truck 1 Ton":12,"Truck 1.25 Ton":12.5,"Truck 1.5 Ton":13,"Truck 2 Ton":14.5,"Truck 2.5 Ton":16,"Truck 3.5 Ton":18,"Truck 5 Ton":21,"Truck 8 Ton":26,"Truck 10 Ton":29,"Truck 15 Ton":35};
 S.norm=Object.assign({},NORM_DEFAULT,LS.get("norm2",{}));S.kmF=LS.get("kmF",1.3);
@@ -700,17 +701,18 @@ function fuelMonths(n,m){const all=Object.keys(Object.assign({},TMS_SUM_DEFAULT,
 function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   if(!isOpen()){$("#vFuel").innerHTML=$("#vStaff").innerHTML=$("#vMgmt").innerHTML=`<p class="lead">${mLbl(m)} đã chốt, không cần verify.</p>`;return}
   const ms=fuelMonths(n,m),npp=opsTotal(OPS_UI[0]),nppRaw=opsRaw(OPS_UI[0]),sP=opsShare(OPS_UI[0]);
-  const rows=ms.map(k=>{const t=tmsSum(k)[n.id],l=truckLitres(t),p=fuel("truck",k),c=p?l.L*p:null,mm=n.months[k];
-    const act=k===m?npp:(mm&&!mm.open?mm.petro:null);return {k,t,l,p,c,act}});
+  const rows=ms.map(k=>{const t=tmsSum(k)[n.id],l=truckLitres(t),p=fuel("truck",k),adj=fuelAdjOf(k),L2=l.L*(1+adj/100),c=p?L2*p:null,mm=n.months[k];
+    const act=k===m?npp:(mm&&!mm.open?mm.petro:null);return {k,t,l,p,adj,L2,c,act}});
   const cur9=rows.find(x=>x.k===m),fp=FIN("petro"),outs=hist(n,m).every(k=>!(n.months[k].petro>0))&&hist(n,m).some(k=>n.months[k].trOther>0);
   $("#vFuel").innerHTML=`${outs?`<p class="hint"><b style="color:var(--amber)">${n.code} thuê ngoài vận chuyển</b>, chi phí xăng dầu nằm trong mục Thuê xe ngoài. Số tính từ TMS chỉ để tham khảo.</p>`:""}
-  <div class="scroll"><table class="dt"><thead><tr><th class="l">Tháng</th><th>Chuyến</th><th>Thùng</th><th>Km</th><th>Số lít (TMS)</th><th>Giá DO (đ/lít)</th><th>Chi phí theo TMS</th><th>Chi phí NPP / PnL</th><th>NPP trước share</th><th>% NPP / TMS</th><th>Chênh lệch</th></tr></thead><tbody>
+  <div class="scroll"><table class="dt"><thead><tr><th class="l">Tháng</th><th>Chuyến</th><th>Thùng</th><th>Km</th><th>Số lít (TMS)</th><th>± % số lít</th><th>Số lít sau ±%</th><th>Giá DO (đ/lít)</th><th>Chi phí theo TMS</th><th>Chi phí NPP / PnL</th><th>NPP trước share</th><th>% NPP / TMS</th><th>Chênh lệch</th></tr></thead><tbody>
   ${rows.map(x=>{const d=x.c!=null&&x.act?x.act-x.c:null;return `<tr${x.k===m?' style="background:var(--green-soft)"':""}><td class="l"><b>${mLbl(x.k)}</b>${x.k===m?"<small>tháng làm P&amp;L</small>":""}</td><td>${fmt(x.t.trips)}</td><td>${fmt(x.t.cases)}</td><td>${fmt(x.l.km)}</td><td>${fmt(x.l.L)}</td>
+    <td><input class="v" inputmode="decimal" data-fadj="${x.k}" value="${x.adj?fmt(x.adj,1):""}" placeholder="0" style="max-width:80px"></td><td>${fmt(x.L2)}</td>
     <td><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" value="${x.p?fmt(x.p):""}" placeholder="nhập giá" style="max-width:110px"></td>
     <td>${x.c!=null?fmt(x.c):"–"}</td><td>${x.act!=null?fmt(x.act):'<span class="muted">chưa nhập</span>'}</td><td>${x.k===m&&opsRaw(OPS_UI[0])!=null?fmt(opsRaw(OPS_UI[0])):"–"}</td><td>${x.c&&x.act!=null?`<b class="${Math.abs(x.act/x.c-1)>.15?"d-dn":""}">${fmt(x.act/x.c*100,1)}%</b>`:"–"}</td><td>${d!=null?`<span class="${Math.abs(d)/x.c>.15?"d-dn":""}">${d>0?"+":""}${fmt(d)} (${d>0?"+":""}${fmt(d/x.c*100,1)}%)</span>`:"–"}</td></tr>`}).join("")}
   </tbody></table></div>
   <div class="vfinal"><span>Final xăng dầu xe tải ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="petro" value="${fp!=null?fmt(fp):""}" placeholder="${nppRaw!=null?fmt(nppRaw):"nhập số final"}">
-    <span class="muted">Để trống = dùng số NPP nhập (trước share)${cur9&&cur9.c!=null&&sP>0?` · theo TMS trước share (${fmt(sP)}%): ${fmt(Math.round(cur9.c/(sP/100)))}`:""}</span></div>
+    <span class="muted">Để trống = dùng số NPP nhập (trước share)${cur9&&cur9.c!=null&&sP>0?` · theo TMS trước share (${fmt(sP)}%): <b>${fmt(Math.round(cur9.l.L*cur9.p/(sP/100)))}</b>${cur9.adj?` → sau ${cur9.adj>0?"+":""}${fmt(cur9.adj,1)}% số lít: <b>${fmt(Math.round(cur9.c/(sP/100)))}</b>`:""}`:""}</span></div>
   <div class="vfinal"><span>Final xăng dầu xe máy ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="bike" value="${FIN("bike")!=null?fmt(FIN("bike")):""}" placeholder="${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"nhập số final"}">
     <span class="muted">NPP nhập: ${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"–"} (trước share: ${opsRaw(OPS_UI[1])!=null?fmt(opsRaw(OPS_UI[1])):"–"}) · Tham chiếu M-2: ${r?fmt(r.bike||0):"–"}</span></div>
   <details class="sec" style="margin-top:10px"><summary><span class="t">Định mức tiêu hao &amp; hệ số quãng đường</span><span class="tag">lít / 100 km</span></summary><div class="body">
@@ -750,6 +752,7 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
 document.addEventListener("change",e=>{const el=e.target;if(!el.closest||!el.closest("#tab-verify"))return;
   if(el.dataset.ov){const k=okey();S.fin[k]=S.fin[k]||{};S.fin[k].ops=S.fin[k].ops||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k].ops[el.dataset.ov];else S.fin[k].ops[el.dataset.ov]=v;LS.set("fin",S.fin);refreshDerived();return}
   if(el.dataset.fin){const k=okey();S.fin[k]=S.fin[k]||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k][el.dataset.fin];else S.fin[k][el.dataset.fin]=v;LS.set("fin",S.fin);refreshDerived();return}
+  if(el.dataset.fadj){S.fuelAdj=S.fuelAdj||{};const ak=cur().id+"|"+el.dataset.fadj,v=parse(el.value);if(v)S.fuelAdj[ak]=v;else delete S.fuelAdj[ak];LS.set("fuelAdj",S.fuelAdj);renderVerify();refreshDerived();return}
   if(el.dataset.fuel){S.fuel=S.fuel||{};const fk=fuelKey(el.dataset.fuel);S.fuel[fk]=S.fuel[fk]||{};const v=parse(el.value);if(v)S.fuel[fk][el.dataset.m]=v;else delete S.fuel[fk][el.dataset.m];LS.set("fuel",S.fuel);refreshDerived();return}
   if(el.dataset.norm){S.norm[el.dataset.norm]=parse(el.value)||0;LS.set("norm2",S.norm);refreshDerived();return}
   if(el.id==="kmF"){S.kmF=parse(el.value)||1;LS.set("kmF",S.kmF);refreshDerived();return}
