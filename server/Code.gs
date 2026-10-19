@@ -27,6 +27,12 @@ function doPost(e) {
         return out_({ ok: true, items: list_(req.month) });
       case 'get': return out_({ ok: true, item: list_().find(x => x.key === req.key) || null });
       case 'fa_list': return out_(fa_list_());
+      case 'vf_list':
+        if (role !== 'admin') return out_({ ok: false, error: 'Chỉ Admin được xem số điều chỉnh xăng dầu.' });
+        return out_(vf_list_());
+      case 'vf_save':
+        if (role !== 'admin') return out_({ ok: false, error: 'Chỉ Admin được lưu số điều chỉnh xăng dầu.' });
+        return out_(vf_save_(req.items, role));
       case 'fa_save':
         if (role !== 'admin') return out_({ ok: false, error: 'Chỉ Admin được lưu sổ TSCĐ.' });
         return out_(fa_save_(req.items, role));
@@ -102,6 +108,31 @@ function fa_save_(items, role) {
     if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, FA_HEAD.length).clearContent();
     if (items.length) sh.getRange(2, 1, items.length, FA_HEAD.length).setValues(items.map(x => [
       String(x.k), String(x.d), x.n, x.c, +x.v, "'" + x.s, +x.l, now, role]));
+    return { ok: true, count: items.length };
+  } finally { lock.releaseLock(); }
+}
+
+// Số điều chỉnh ±% số lít và giá DO xe tải của từng NPP theo tháng (tab Verify)
+const VF_SHEET = 'Verify';
+const VF_HEAD = ['Key', 'DisID', 'Tháng', '± % số lít', 'Giá DO xe tải', 'Cập nhật', 'Người cập nhật'];
+function vf_list_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(VF_SHEET);
+  if (!sh || sh.getLastRow() < 2) return { ok: true, items: [] };
+  const items = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues().filter(r => r[0]).map(r => ({
+    k: String(r[0]), d: String(r[1]), m: String(r[2]), adj: Number(r[3]) || 0, p: Number(r[4]) || 0 }));
+  return { ok: true, items };
+}
+function vf_save_(items, role) {
+  if (!Array.isArray(items)) return { ok: false, error: 'Thiếu dữ liệu Verify.' };
+  const valid = items.every(x => x && x.k && x.d && /^\d{4}-\d{2}$/.test(x.m || '') && isFinite(+x.adj) && isFinite(+x.p) && +x.p >= 0);
+  if (!valid) return { ok: false, error: 'Có dòng Verify thiếu hoặc sai dữ liệu.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = sheet_(VF_SHEET, VF_HEAD), now = new Date();
+    if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, VF_HEAD.length).clearContent();
+    if (items.length) sh.getRange(2, 1, items.length, VF_HEAD.length).setValues(items.map(x => [
+      String(x.k), String(x.d), "'" + x.m, +x.adj, +x.p, now, role]));
     return { ok: true, count: items.length };
   } finally { lock.releaseLock(); }
 }
