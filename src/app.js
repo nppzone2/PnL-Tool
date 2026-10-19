@@ -752,8 +752,8 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
 document.addEventListener("change",e=>{const el=e.target;if(!el.closest||!el.closest("#tab-verify"))return;
   if(el.dataset.ov){const k=okey();S.fin[k]=S.fin[k]||{};S.fin[k].ops=S.fin[k].ops||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k].ops[el.dataset.ov];else S.fin[k].ops[el.dataset.ov]=v;LS.set("fin",S.fin);refreshDerived();return}
   if(el.dataset.fin){const k=okey();S.fin[k]=S.fin[k]||{};const v=el.value.trim()===""?null:parse(el.value);if(v==null)delete S.fin[k][el.dataset.fin];else S.fin[k][el.dataset.fin]=v;LS.set("fin",S.fin);refreshDerived();return}
-  if(el.dataset.fadj){S.fuelAdj=S.fuelAdj||{};const ak=cur().id+"|"+el.dataset.fadj,v=parse(el.value);if(v)S.fuelAdj[ak]=v;else delete S.fuelAdj[ak];LS.set("fuelAdj",S.fuelAdj);renderVerify();refreshDerived();return}
-  if(el.dataset.fuel){S.fuel=S.fuel||{};const fk=fuelKey(el.dataset.fuel);S.fuel[fk]=S.fuel[fk]||{};const v=parse(el.value);if(v)S.fuel[fk][el.dataset.m]=v;else delete S.fuel[fk][el.dataset.m];LS.set("fuel",S.fuel);refreshDerived();return}
+  if(el.dataset.fadj){S.fuelAdj=S.fuelAdj||{};const ak=cur().id+"|"+el.dataset.fadj,v=parse(el.value);if(v)S.fuelAdj[ak]=v;else delete S.fuelAdj[ak];LS.set("fuelAdj",S.fuelAdj);renderVerify();refreshDerived();saveVerify();return}
+  if(el.dataset.fuel){S.fuel=S.fuel||{};const fk=fuelKey(el.dataset.fuel);S.fuel[fk]=S.fuel[fk]||{};const v=parse(el.value);if(v)S.fuel[fk][el.dataset.m]=v;else delete S.fuel[fk][el.dataset.m];LS.set("fuel",S.fuel);refreshDerived();saveVerify();return}
   if(el.dataset.norm){S.norm[el.dataset.norm]=parse(el.value)||0;LS.set("norm2",S.norm);refreshDerived();return}
   if(el.id==="kmF"){S.kmF=parse(el.value)||1;LS.set("kmF",S.kmF);refreshDerived();return}
   if(el.dataset.fws||el.dataset.frt){const k=okey();S.fin[k]=S.fin[k]||{};const P=S.fin[k].prices=S.fin[k].prices||{};const sku=el.dataset.fws||el.dataset.frt,f=el.dataset.fws?"ws":"rt";P[sku]=P[sku]||{};
@@ -908,6 +908,7 @@ $("#f").addEventListener("submit",e=>{e.preventDefault();render(calc());const o=
 $("#reset").onclick=loadNpp;
 safe(()=>{fillMonths();loadNpp()});
 syncMine();
+loadVerify();
 
 // ---- Đồng bộ bài nộp với hệ thống (Google Apps Script → Google Sheet)
 const tLbl=t=>new Date(t).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
@@ -931,6 +932,20 @@ function applySub(x,force){const loc=S.ops[x.key]||{},seen=Math.max(loc._at||0,l
   if(x.data.fin)S.fin[x.key]=x.data.fin;
   if(x.data.fuel&&x.data.fuel.truck){const fk=x.disId+"|truck";S.fuel=S.fuel||{};S.fuel[fk]={...(S.fuel[fk]||{}),...x.data.fuel.truck}}
   return true}
+// Đồng bộ tab Verify (±% số lít, giá DO xe tải) lên máy chủ; admin mở tool sẽ nạp lại từ máy chủ
+let VF_T=null;
+function saveVerify(){if(!IS_ADMIN||!API_URL||!window.__AUTH)return;clearTimeout(VF_T);
+  VF_T=setTimeout(async()=>{const map={},put=(d,m)=>{const k=d+"|"+m;map[k]=map[k]||{k,d,m,adj:0,p:0};return map[k]};
+    Object.entries(S.fuelAdj||{}).forEach(([k,v])=>{const [d,m]=k.split("|");put(d,m).adj=+v||0});
+    Object.entries(S.fuel||{}).forEach(([k,months])=>{if(!k.endsWith("|truck"))return;const d=k.split("|")[0];Object.entries(months||{}).forEach(([m,v])=>{put(d,m).p=+v||0})});
+    try{await api("vf_save",{items:Object.values(map)})}
+    catch(e){flash("Chưa lưu được điều chỉnh xăng dầu lên hệ thống: "+e.message+" (cần cập nhật Apps Script).","bad")}},600)}
+async function loadVerify(){if(!IS_ADMIN||!API_URL||!window.__AUTH)return;
+  try{const j=await api("vf_list",{});let changed=false;(j.items||[]).forEach(x=>{
+      if(x.adj){S.fuelAdj=S.fuelAdj||{};S.fuelAdj[x.d+"|"+x.m]=x.adj;changed=true}
+      if(x.p){S.fuel=S.fuel||{};const fk=x.d+"|truck";S.fuel[fk]=S.fuel[fk]||{};S.fuel[fk][x.m]=x.p;changed=true}});
+    if(changed){LS.set("fuelAdj",S.fuelAdj);LS.set("fuel",S.fuel);renderVerify();refreshDerived()}}
+  catch(e){console.warn("Chưa nạp được Verify từ máy chủ:",e.message)}}
 // NPP đăng nhập trên máy khác: nạp lại bài nộp đã gửi của chính NPP đó (theo từng tháng)
 async function syncMine(){if(IS_ADMIN||!API_URL||!window.__AUTH)return;
   try{let k=0;for(const m of Object.keys(cur().months)){const j=await api("get",{key:cur().id+"|"+m});if(j.item&&applySub(j.item))k++}
