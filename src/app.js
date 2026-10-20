@@ -948,9 +948,10 @@ async function loadVerify(){if(!IS_ADMIN||!API_URL||!window.__AUTH)return;
   catch(e){console.warn("Chưa nạp được Verify từ máy chủ:",e.message)}}
 // NPP đăng nhập trên máy khác: nạp lại bài nộp đã gửi của chính NPP đó (theo từng tháng)
 async function syncMine(){if(IS_ADMIN||!API_URL||!window.__AUTH)return;
-  try{let k=0;for(const m of Object.keys(cur().months)){const j=await api("get",{key:cur().id+"|"+m});if(j.item&&applySub(j.item))k++}
-    if(k){LS.set("ops",S.ops);LS.set("prices",S.prices);LS.set("fin",S.fin);LS.set("fuel",S.fuel);fillMonths(mon());loadNpp();refreshAll()}}
-  catch(e){console.warn("Không nạp lại được bài nộp:",e.message)}}
+  try{let k=0,found=0;for(const m of Object.keys(cur().months)){const j=await api("get",{key:cur().id+"|"+m});if(j.item){found++;if(applySub(j.item))k++}}
+    if(k){LS.set("ops",S.ops);LS.set("prices",S.prices);LS.set("fin",S.fin);LS.set("fuel",S.fuel);fillMonths(mon());loadNpp();refreshAll()}
+    flash(found?`Đã đồng bộ số liệu đã gửi của ${cur().code} (${found} tháng trên hệ thống${k?`, nạp mới ${k} tháng`:""}).`:`Chưa có số liệu đã gửi của ${cur().code} trên hệ thống.`,"ok")}
+  catch(e){flash(`Chưa tải được số liệu đã gửi từ hệ thống: ${e.message} Kiểm tra Apps Script đã deploy phiên bản mới (New version).`,"bad")}}
 let SUBS=[];
 async function loadSubs(){if(!IS_ADMIN)return;const msg=$("#subMsg");msg.textContent="Đang tải…";
   try{const j=await api("list",{});SUBS=j.items||[];let k=0;SUBS.forEach(x=>{if(applySub(x))k++});
