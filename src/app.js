@@ -232,6 +232,7 @@ function render(r){
     (Math.abs(r.pat-act.pat)<Math.max(1000,Math.abs(act.pat)*.0005)?`✓ Khớp PnL Detail ${mLbl(mm)}: PAT ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%.`:`Chênh so với thực tế ${mLbl(mm)}: PAT ${r.pat-act.pat>0?"+":""}${M(r.pat-act.pat)} tr (thực tế ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%).`);
   $("#out").innerHTML=`
   <h2>${n.code} · ${mLbl(mm)}</h2><div class="stamp">${r.soMode?"Sản lượng SO × giá bán":"Theo PnL Detail"} · ${fmt(V)} thùng · BM = bình quân ${NPP.length} NPP, các tháng đã chốt</div>
+  ${IS_ADMIN?dataSrcLine():""}
   ${checklist()}
   <div class="kpis">
     <div class="kpi hero-k"><div class="k">ROI (tháng)</div><div class="v num">${fmt(r.roi,2)}%</div><div class="s">≈ ${fmt(r.roi*12,1)}%/năm ${pill(r.roi,BM.roi)}</div></div>
@@ -761,6 +762,16 @@ document.addEventListener("change",e=>{const el=e.target;if(!el.closest||!el.clo
 const finPrice=(sku,f)=>(((FIN("prices")||{})[sku])||{})[f]??null;
 
 // ---- P&L checklist
+// Admin: các file nạp tay được lưu riêng trên từng trình duyệt (không đồng bộ lên máy chủ), hiển thị để so sánh giữa các máy
+function dataSrcLine(){
+  const so=S.so||{},gis=S.gis||{},ms=Object.keys(S.tmsSum||{}).sort(),ch=Object.keys(S.chan||{}).length;
+  const parts=[
+    `SO: ${so.file?esc(so.file)+" · "+mLbl(so.month):"mặc định"}`,
+    `TMS: ${ms.length?ms.map(mLbl).join(", "):"chưa nạp"}`,
+    `GIS: ${gis.file?esc(gis.file):"chưa nạp"}`,
+    `SI: ${S.si&&S.si.file?esc(S.si.file):"mặc định"}`,
+    `Kênh: ${ch} loại`];
+  return `<div class="stamp">Dữ liệu nạp tay trên máy này (không đồng bộ) · ${parts.join(" · ")}</div>`}
 function checklist(){if(!isOpen())return "";const so=soRevenue(),miss=opsMissing(),items=[];
   const pc=so.V?so.src.input/so.V*100:0;
   items.push([pc>=95?"ok":"warn",`Giá bán: đã collect ${fmt(pc,0)}% sản lượng SO`]);
