@@ -9,8 +9,8 @@ const DEFAULT_CHAN={"Grocery Store":"OFF","Sub Distributor":"SDIS","Wholesaler":
 const CH=["SDIS","OFF","ON"];
 const OPS=[["depTruck","Depreciation truck/3 wheels","Khấu hao xe tải, 3 bánh","tr"],["depFork","Depreciation Forklift","Khấu hao xe nâng","wh"],["depTools","Depreciation/Tools","Khấu hao thiết bị văn phòng","mg"],["petro","Transport Petro fees (truck)","Phí xăng dầu xe tải, 3 bánh","tr"],["bike","Transport fees (Bike)","Phí giao hàng xe máy","tr"],["trOther","Transporation other fee","Chi phí khác cho giao hàng","tr"],["hireWh","Hiring Warehouse","Thuê kho (m² × chi phí/m²)","wh"],["driver","Delivery & Driver","Tài xế & giao hàng (Qty = số người, VND = tổng tiền)","tr"],["whKeeper","WH Keeper & Accountant","Lương nhân viên Kế toán, Thủ kho","mg"],["dsm","DSM cost","Nhân viên DSM","mg"],["mgmt","Management cost","Lương nhân viên Quản lý","mg"],["office","Office expenses","Điện / nước / văn phòng phẩm","mg"],["otherFee","Other fees","Chi phí phát sinh, giao tế…","mg"]];
 const MKS=[["mkWs","Wholesales","Chiết khấu khách hàng sỉ","mk"],["mkRt","Retailers","Chiết khấu khách hàng lẻ","mk"],["mkOt","Others","CK bán hàng khác / chương trình","mk"],["capInt","Interest expenses","Lãi vay (số tiền & % lãi suất/tháng)","cap"],["capBad","Bad debt provision","Dự phòng nợ xấu","cap"],["capOt","Others","Chi phí vốn khác","cap"]];
-const OIS=[["cdAmt","CD Amount","Hệ thống HVN","Detail"],["cdInt","CD Interest","Hệ thống HVN","Detail"],["dip","DIP Amount","Hệ thống HVN","Detail"],["oiOther","Other (Increase price/Promotion)","Thu nhập từ tăng giá, KM","GIS"],["cit","Income Tax (CIT) %","Thuế thu nhập DN","GIS"]];
-const ICS=[["curAcc","Current account","Tài khoản thanh toán","GIS"],["credit","Credit for Outlets","Công nợ thị trường","GIS"],["fixed","Remaining value fixed assets","Giá trị TS còn lại theo tỉ trọng","Detail"],["inv","Inventory","Tồn kho","Detail"],["cdHold","CD hold","Hệ thống HVN","Detail"],["deposit","Cash deposit & DMF","Hệ thống HVN","Detail"]];
+const OIS=[["cdAmt","CD Amount","Hệ thống HVN","Detail"],["cdInt","CD Interest","Hệ thống HVN","Detail"],["dip","DIP Amount","Hệ thống HVN","Detail"],["oiOther","Other (Increase price/Promotion)","Thu nhập từ tăng giá, KM","Detail"],["cit","Income Tax (CIT) %","Thuế thu nhập DN","GIS"]];
+const ICS=[["curAcc","Current account","Tài khoản thanh toán","GIS"],["credit","Credit for Outlets","Công nợ thị trường","GIS"],["fixed","Remaining value fixed assets","Giá trị TS còn lại (số nhập EDE)","GIS"],["inv","Inventory","Tồn kho","Detail"],["cdHold","CD hold","Hệ thống HVN","Detail"],["deposit","Cash deposit & DMF","Hệ thống HVN","Detail"]];
 const GRP={wh:"Warehouse",tr:"Transportation",mg:"Management",mk:"Market investment",cap:"Capital cost"};
 const GRPKEYS={wh:["hireWh","depFork"],tr:["depTruck","petro","bike","trOther","driver"],mg:["whKeeper","dsm","mgmt","office","otherFee","depTools"],mk:["mkWs","mkRt","mkOt"],cap:["capInt","capBad","capOt"]};
 
@@ -23,7 +23,9 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const LS={get(k,d){try{const v=localStorage.getItem("npppl:"+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("npppl:"+k,JSON.stringify(v))}catch(e){}}};
 
 // ---- state
-const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:LS.get("gis",{file:null,prices:{}}),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
+// Gói dữ liệu EDE Input + SaleOut by Segment nhúng lúc build (GitHub Actions); số Admin nạp tay trên máy sẽ ghi đè
+const BUN=(typeof BUNDLE!=="undefined"&&BUNDLE)||{};
+const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:(g=>g&&g.file?g:(BUN.gis||{file:null,prices:{}}))(LS.get("gis",null)),soseg:(g=>g&&g.file?g:(BUN.soseg||null))(LS.get("soseg",null)),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
 
 // ---- benchmarks (closed months only)
 const gsum=(m,g)=>GRPKEYS[g].reduce((a,k)=>a+(m[k]||0),0);
@@ -56,8 +58,11 @@ document.addEventListener("focusout",e=>{const el=e.target;if(el.id&&el.matches&
 document.addEventListener("focusin",e=>{if(e.target.matches&&e.target.matches("input.v"))e.target.select()});
 
 // SO volume by sku × channel for current NPP & month
+// Ưu tiên file SaleOut by Segment (nhiều tháng); tháng không có trong file này mới dùng file SO theo ngày giao
+const segHas=m=>!!(S.soseg&&S.soseg.months&&S.soseg.months.includes(m));
 function soFor(dis,m){
-  if(!S.so||S.so.month!==m)return null;const d=S.so.data[dis];if(!d)return {};
+  let d;if(segHas(m))d=(S.soseg.data[dis]||{})[m];else{if(!S.so||S.so.month!==m)return null;d=S.so.data[dis]}
+  if(!d)return {};
   const out={};for(const sku in d){const r=out[sku]={SDIS:0,OFF:0,ON:0,NA:0};for(const t in d[sku]){const c=S.chan[t];r[c&&CH.includes(c)?c:"NA"]+=d[sku][t]}}
   return out}
 // reference prices: collected prices of earlier months first, then GIS input (pnl-month keyed)
@@ -92,7 +97,8 @@ fillNpp(0);
 function setNpp(i){$("#selZone").value=zoneOf(NPP[i]);fillNpp(i)}
 $("#opT tbody").innerHTML=OPS.map(o=>`<tr><td class="lbl">${o[1]}<small>${o[2]} · ${GRP[o[3]]}</small></td><td>${inp(o[0]+"_q")}</td><td>${inp(o[0]+"_v")}</td><td>${inp(o[0]+"_s")}</td></tr>`).join("");
 $("#mkT tbody").innerHTML=MKS.map(o=>`<tr><td class="lbl">${o[1]}<small>${o[2]}</small></td><td>${inp(o[0]+"_v")}</td><td>${inp(o[0]+"_p")}</td></tr>`).join("");
-const row=o=>`<div class="row2"><label for="${o[0]}">${o[1]}<small>${o[2]} <span class="src">${o[3]==="GIS"?"GIS Input":"PnL Detail"}</span></small></label>${inp(o[0])}</div>`;
+const row=o=>`<div class="row2"><label for="${o[0]}">${o[1]}<small>${o[2]} <span class="src">${o[3]==="GIS"?"EDE Input":"PnL Detail"}</span></small></label>${inp(o[0])}</div>${o[0]==="fixed"?`<p class="hint" id="fixedHint" hidden></p>`:""}`;
+$("#onoffP").addEventListener("input",renderEde);
 $("#oiB").innerHTML=OIS.map(row).join("");$("#icB").innerHTML=`<details class="autosec"${IS_ADMIN?" open":" hidden"}><summary>Tự tính Current account · Credit for Outlets</summary><div class="autobox">
   <div class="arow"><label class="sw"><input type="checkbox" id="autoCur"><span>Tự tính <b>Current account</b></span></label>
     <div class="f">Giá trị mua hàng SI ÷ ${inp("wDays")} ngày làm việc × ${inp("bufDays")} ngày dự phòng <label class="sw" style="font-size:12.5px"><input type="checkbox" id="siVat">+ VAT 10%</label></div></div>
@@ -117,6 +123,9 @@ function updMonNote(){const el=$("#monNote");if(!el)return;const dm=defMon(Objec
 // Dòng chi phí trong file PnL GIS Input (nhóm "3. Operation cost"): Val01 = Qty, Val02 = VND, Val03 = % share
 // Dòng thị trường và vốn: Val01 = VND, Val02 = %
 const GIS_COST_MAP=[[/^Depreciation truck/,"depTruck","ops"],[/^Depreciation Forklift/,"depFork","ops"],[/^Depreciation\/Tools/,"depTools","ops"],[/^Transport Petro fees/,"petro","ops"],[/^Transport fees \(Bike\)/,"bike","ops"],[/^Transporation other fee/,"trOther","ops"],[/^Hiring Warehouse/,"hireWh","ops"],[/^Delivery & Driver/,"driver","ops"],[/^WH Keeper/,"whKeeper","ops"],[/^DSM cost/,"dsm","ops"],[/^Management cost/,"mgmt","ops"],[/^Office expenses/,"office","ops"],[/^Other fees/,"otherFee","ops"],[/^Wholesales/,"mkWs","mk"],[/^Retailers/,"mkRt","mk"],[/^Others - (Chiết|CK)/,"mkOt","mk"],[/^Interest expenses/,"capInt","mk"],[/^Bad debt/,"capBad","mk"],[/^Others - Chi phí vốn/,"capOt","mk"]];
+// Nhóm 2, 4, 5 của EDE: Val01 là số tiền (CIT là %), lấy 100% không nhân tỷ lệ
+const EDE_MAP=[[/^Discount for WholeSales/i,"discWs"],[/^Income Tax/i,"cit"],[/^Other \(Increase price/i,"oiOther"],[/^Current account/i,"curAcc"],[/^Credit for Outlets/i,"credit"],[/^Rema(i)?ng value fixed assets/i,"fixed"]];
+const edeKey=name=>{const hit=EDE_MAP.find(([re])=>re.test(name));return hit?hit[1]:null};
 const gisCostKey=name=>{const hit=GIS_COST_MAP.find(([re])=>re.test(name));return hit?{k:hit[1],kind:hit[2]}:null};
 // Chi phí của một NPP trong một tháng P&L lấy từ file GIS (null nếu file không có dòng nào của tháng đó)
 const gisCostsFor=(dis,m)=>((S.gis.costs||{})[dis]||{})[m]||null;
@@ -127,25 +136,52 @@ function loadNpp(){
   MKS.forEach(o=>{set(o[0]+"_v",m[o[0]]||"");set(o[0]+"_p","")});
   ["cdAmt","cdInt","dip","oiOther"].forEach(k=>set(k,m[k]));set("cit",m.cit);
   ICS.forEach(o=>set(o[0],m[o[0]]));
+  delete $("#fixed").dataset.fx;delete $("#fixed").dataset.fxt;
   const gc=!m.open&&gisCostsFor(n.id,mon());
   if(gc){ // tháng đã chốt: Qty, VND, % share lấy từ GIS input; dòng không có trong file để trống
-    OPS.forEach(o=>{const g=gc[o[0]]||{},dep=/^dep/.test(o[0]);set(o[0]+"_q",dep?(g.v?1:""):(g.q||""));set(o[0]+"_v",g.v||"");set(o[0]+"_s",g.v?(g.s??100):"")}); // khấu hao: Qty = 1 như P&L Detail, VND đã là tổng
-    MKS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_v",g.v||"");set(o[0]+"_p",g.p||"")});
+    // Qty = Val01 (chỉ để xem), VND = Val02 là số tổng, % share = Val03. Riêng thuê kho: m² × đơn giá × % share
+    OPS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_q",g.v?(g.q||""):"");set(o[0]+"_v",g.v||"");set(o[0]+"_s",g.v?(g.s??100):"")});
+    MKS.forEach(o=>{const g=gc[o[0]]||{};set(o[0]+"_v",g.v||"");set(o[0]+"_p",g.v?(g.p??100):"")});
+    // CIT, Current account, Credit for Outlets, Remaining value: Val01 của EDE
+    const ev=k=>gc[k]&&gc[k].v!=null?gc[k].v:null;
+    if(ev("cit")!=null)set("cit",ev("cit"));["curAcc","credit"].forEach(k=>{if(ev(k)!=null)set(k,ev(k))});
+    if(ev("fixed")!=null){set("fixed",ev("fixed"));const sh=(gc.hireWh&&gc.hireWh.s!=null?gc.hireWh.s:100),tr=gc.depTruck&&gc.depTruck.v>0;
+      Object.assign($("#fixed").dataset,{fx:String(sh/100*(tr?1/3:2/3)),fxt:`× ${fmt(sh)}% share kho ${tr?"÷ 3":"× 2/3"}`})}
   }
   set("wDays",26);set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
   $("#autoCur").checked=!!m.open&&siAmount(n.id,mon())!=null;$("#autoCred").checked=false;$("#autoCred").closest(".arow").hidden=true;
   document.querySelectorAll("input[data-ref]").forEach(el=>{delete el.dataset.ref;el.placeholder=""});
   applyDepRefs(true);
   const so=soFor(n.id,mon());
-  $("#modeSo").disabled=!so||!Object.keys(so).length;
-  (so&&Object.keys(so).length?$("#modeSo"):$("#modeTot")).checked=true;toggleMode();
-  $("#costHint").textContent=m.open?`${mLbl(mon())} chưa chốt trên PnL Detail: chi phí và vốn đang lấy theo ${mLbl(addM(mon(),-1))}, CD/DIP và Inventory lấy theo ${mLbl(mon())}.`:"Số nạp sẵn là chi phí tháng thực tế (Qty = 1, share 100%). Market investment = VND + % × doanh thu. Capital cost = VND × % (bỏ trống % thì lấy nguyên VND).";
+  $("#modeSo").disabled=!so||!Object.keys(so).length;$("#modeEde").disabled=!edeOk();
+  ($("#modeEde").disabled?(so&&Object.keys(so).length?$("#modeSo"):$("#modeTot")):$("#modeEde")).checked=true;
+  set("onoffP",edeOk()?edeRev().Po:"");toggleMode();
+  $("#costHint").textContent=m.open?`${mLbl(mon())} chưa chốt trên PnL Detail: chi phí và vốn đang lấy theo ${mLbl(addM(mon(),-1))}, CD/DIP và Inventory lấy theo ${mLbl(mon())}.`:`${gc?"Số nạp từ EDE Input":"Số nạp sẵn là chi phí tháng thực tế"}: chi phí = VND × % share (Qty chỉ để xem; thuê kho = m² × đơn giá × % share). Market investment và Capital cost = VND × % share (bỏ trống % thì lấy nguyên VND).`;
   $("#meta").innerHTML=`<span>DisID <b>${n.id}</b></span><span>${n.region||"Ngoài phạm vi GIS export"} · <b>${n.area}</b></span>`+
     (n.gisLast?`<span>GIS nhập gần nhất <b>${n.gisLast}</b>${n.ddt?" · "+esc(n.ddt):""}</span>`:"")+
     `<span>SO: <b>${so?(Object.keys(so).length?fmt(Object.values(so).reduce((a,r)=>a+r.SDIS+r.OFF+r.ON+r.NA,0))+" thùng":"không có dòng của NPP"):"chưa có file "+mLbl(mon())}</b></span>`;
   refreshAll();
 }
-function toggleMode(){const so=$("#modeSo").checked;$("#soBox").hidden=!so;$("#totBox").hidden=so;$("#volTag").textContent=so?"SO × Giá bán":"PnL Detail"}
+const modeOf=()=>$("#modeEde").checked&&!$("#modeEde").disabled?"ede":$("#modeSo").checked&&!$("#modeSo").disabled?"so":"tot";
+function toggleMode(){const md=modeOf();$("#soBox").hidden=md!=="so";$("#edeBox").hidden=md!=="ede";$("#totBox").hidden=md!=="tot";$("#volTag").textContent=md==="so"?"SO × Giá bán":md==="ede"?"SO kênh × giá EDE":"PnL Detail";renderEde()}
+// ---- Doanh thu theo kênh (tháng đã chốt có EDE): SDIS × Val01, On-Off × Val02 điều chỉnh để tổng doanh thu khớp PnL Detail
+// Tổng sản lượng giữ theo PnL Detail; phần chênh so với SaleOut by Segment tính vào On-Off
+const edePr=(dis,m)=>((S.gis.prices||{})[dis]||{})[m]||null;
+function edeOk(){const n=cur(),mm=mon(),m=n.months[mm];if(!m||m.open||!m.vol||!segHas(mm)||!edePr(n.id,mm))return false;const so=soFor(n.id,mm);return !!(so&&Object.keys(so).length)}
+function edeRev(){const n=cur(),mm=mon(),m=n.months[mm],so=soFor(n.id,mm)||{},pr=edePr(n.id,mm)||{};
+  let Vs=0,sRev=0,Vso=0,oBase=0;const rows=[],miss=[];
+  for(const sku of skuList(so,false)){const r=so[sku],qs=r.SDIS,qo=r.OFF+r.ON+r.NA;if(!qs&&!qo)continue;const p=pr[sku]||{};let ws=p.ws||null,rt=p.rt||null;
+    if(!ws||!rt){miss.push(sku);const ref=refPrice(n.id,mm,sku);ws=ws||(ref&&ref.SDIS)||rt||n.lastSell;rt=rt||(ref&&ref.OFF)||ws||n.lastSell}
+    Vs+=qs;sRev+=qs*ws;Vso+=qo;oBase+=qo*rt;rows.push({sku,qs,qo,ws,rt})}
+  const V=m.vol,Vo=V-Vs,avgRt=Vso?oBase/Vso:NaN,Po=Vo>0?(m.rev-sRev)/Vo:NaN;
+  return {V,Vs,sRev,Vso,Vo,oBase,avgRt,Po,rows,miss,act:m.rev,Vseg:Vs+Vso}}
+function renderEde(){const box=$("#edeSum");if(!box||$("#edeBox").hidden)return;const e=edeRev(),po=isBlank("onoffP")?e.Po:val("onoffP"),rev=e.sRev+e.Vo*po,d=rev-e.act;
+  const sAvg=e.Vs?e.sRev/e.Vs:NaN,gap=e.V-e.Vseg,ok=Math.abs(d)<1e3;
+  box.innerHTML=`<div class="stats"><div class="stat"><div class="k"><span class="chip SDIS">SDIS</span> giá Val01</div><div class="v">${fmt(e.Vs)}</div><small class="muted">${fmt(sAvg)} đ/thùng</small></div>
+    <div class="stat"><div class="k">On-Off giá Val02</div><div class="v">${fmt(e.Vo)}</div><small class="muted">EDE ${fmt(e.avgRt)} → P&amp;L ${fmt(po)} đ (${po-e.avgRt>0?"+":""}${fmt(po-e.avgRt)})</small></div>
+    <div class="stat"><div class="k">Doanh thu</div><div class="v">${fmt(rev/1e6,1)} tr</div><small class="${ok?"muted":"neg"}">${ok?"✓ khớp PnL Detail":"chênh "+(d>0?"+":"")+fmt(d/1e6,2)+" tr so với PnL Detail"}</small></div></div>
+    <p class="hint">Sản lượng PnL Detail ${fmt(e.V)} thùng · SaleOut by Segment ${fmt(e.Vseg)} thùng${gap?` (chênh ${gap>0?"+":""}${fmt(gap)} thùng, tính vào On-Off)`:""}. SDIS giữ giá Val01; giá On-Off = (doanh thu PnL Detail − doanh thu SDIS) ÷ sản lượng On-Off.${e.miss.length?` SKU chưa có giá EDE, đang dùng giá tham chiếu: ${e.miss.join(", ")}.`:""}</p>`;
+  $("#edeSku").innerHTML=`<table class="dt"><thead><tr><th class="l">SKU</th><th>SL SDIS</th><th>Sdis (Val01)</th><th>SL On-Off (SO)</th><th>On-Off (Val02)</th><th>On-Off điều chỉnh</th></tr></thead><tbody>${e.rows.map(r=>`<tr><td class="l">${esc(r.sku)}</td><td>${fmt(r.qs)}</td><td>${fmt(r.ws)}</td><td>${fmt(r.qo)}</td><td>${fmt(r.rt)}</td><td>${fmt(r.rt*po/e.avgRt)}</td></tr>`).join("")}</tbody></table>`}
 document.querySelectorAll("input[name=mode]").forEach(r=>r.addEventListener("change",()=>{toggleMode();render(calc())}));
 
 // ---- revenue from SO
@@ -157,21 +193,27 @@ function renderSoSummary(){const r=soRevenue();const pct=k=>r.V?fmt(r.src[k]/r.V
   <div class="stat"><div class="k">Giá bán BQ / thùng</div><div class="v">${fmt(r.V?r.rev/r.V:NaN)}</div></div></div>
   <p class="hint">Tổng ${fmt(r.V)} thùng${r.ch.NA?`, trong đó ${fmt(r.ch.NA)} thùng chưa gán Channel (tạm tính giá OFF)`:""}. Nguồn giá theo sản lượng: đã collect ${pct("input")}, giá tham chiếu ${pct("ref")}, giá BQ tháng gần nhất ${pct("avg")}. Nhập giá ở tab <b>Collect price</b>.</p>`}
 
+// Remaining value: hiển thị số nhập EDE (Val01); P&L tính = Val01 × % share kho ÷ 3 (NPP không có xe tải: × 2/3), khớp PnL Detail
+function fixedCalc(){const el=$("#fixed"),v=val("fixed"),h=$("#fixedHint");const fx=el.dataset.fx?+el.dataset.fx:null;
+  if(h){h.hidden=fx==null;if(fx!=null)h.textContent=`Tính P&L: ${fmt(v)} ${el.dataset.fxt} = ${fmt(v*fx)} đ`}
+  return fx==null?v:v*fx}
 function calc(){
-  let V,rev,cogs;const soMode=$("#modeSo").checked&&!$("#modeSo").disabled;
-  if(soMode){const r=soRevenue();V=r.V;rev=r.rev}else{V=val("totVol");rev=V*val("totSell")}
+  let V,rev,cogs;const md=modeOf(),soMode=md==="so",edeMode=md==="ede";
+  if(soMode){const r=soRevenue();V=r.V;rev=r.rev}
+  else if(edeMode){const e=edeRev(),po=isBlank("onoffP")?e.Po:val("onoffP");V=e.V;rev=e.sRev+e.Vo*po;if(!isFinite(rev))rev=e.act}
+  else{V=val("totVol");rev=V*val("totSell")}
   cogs=V*val("totBuy");
   const disc=V*val("discWs"),gc=rev-cogs-disc,g={wh:0,tr:0,mg:0,mk:0,cap:0};
-  OPS.forEach(o=>{const sh=isBlank(o[0]+"_s")?100:val(o[0]+"_s"),q=["driver","whKeeper","dsm","mgmt","petro","bike"].includes(o[0])?1:val(o[0]+"_q");g[o[3]]+=q*val(o[0]+"_v")*sh/100});
-  MKS.forEach(o=>{const v=val(o[0]+"_v"),p=val(o[0]+"_p");g[o[3]]+=o[3]==="mk"?v+rev*p/100:(p?v*p/100:v)});
+  OPS.forEach(o=>{const sh=isBlank(o[0]+"_s")?100:val(o[0]+"_s"),q=o[0]==="hireWh"?val(o[0]+"_q"):1;g[o[3]]+=q*val(o[0]+"_v")*sh/100});
+  MKS.forEach(o=>{const v=val(o[0]+"_v"),p=val(o[0]+"_p");g[o[3]]+=isBlank(o[0]+"_p")?v:v*p/100});
   const opex=g.wh+g.tr+g.mg+g.mk+g.cap,oi=val("cdAmt")+val("cdInt")+val("dip")+val("oiOther");
   const D=daysIn(mon()),amt=siAmount(cur().id,mon());const base=amt==null?null:amt*($("#siVat").checked?1.1:1);let autoInfo={amt,base,D};
   const ac=$("#autoCur").checked,ar=$("#autoCred").checked;$("#curAcc").readOnly=ac;$("#credit").readOnly=ar;
   if(ac&&val("wDays")>0&&base!=null)set("curAcc",Math.round(base/val("wDays")*val("bufDays")/1e3)*1e3);
   if(ar)set("credit",Math.round(rev/D*val("credDays")/1e3)*1e3);
   renderAutoHint(autoInfo,rev);
-  const pbt=gc-opex+oi,cit=val("cit"),tax=pbt>0?pbt*cit/100:0,pat=pbt-tax,invest=ICS.reduce((a,o)=>a+val(o[0]),0);
-  return{soMode,V,rev,cogs,disc,gc,g,opex,oi,pbt,cit,tax,pat,invest,roi:invest?pat/invest*100:NaN,patPct:rev?pat/rev*100:NaN};
+  const pbt=gc-opex+oi,cit=val("cit"),tax=pbt>0?pbt*cit/100:0,pat=pbt-tax,invest=ICS.reduce((a,o)=>a+(o[0]==="fixed"?fixedCalc():val(o[0])),0);
+  return{soMode,edeMode,V,rev,cogs,disc,gc,g,opex,oi,pbt,cit,tax,pat,invest,roi:invest?pat/invest*100:NaN,patPct:rev?pat/rev*100:NaN};
 }
 const pc=(n,V)=>V?n/V:NaN;
 function pill(v,bm,hi=true){if(!isFinite(v)||!bm)return"";const r=hi?v/bm:bm/v;const c=r>=1?"ok":r>=.85?"warn":"bad";
@@ -231,7 +273,7 @@ function render(r){
   const chk=act.open?`${mLbl(mm)} chưa có số chốt trên PnL Detail, đây là số dự phóng từ SO và giá bán.`:
     (Math.abs(r.pat-act.pat)<Math.max(1000,Math.abs(act.pat)*.0005)?`✓ Khớp PnL Detail ${mLbl(mm)}: PAT ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%.`:`Chênh so với thực tế ${mLbl(mm)}: PAT ${r.pat-act.pat>0?"+":""}${M(r.pat-act.pat)} tr (thực tế ${M(act.pat)} tr, ROI ${fmt(act.roi*100,2)}%).`);
   $("#out").innerHTML=`
-  <h2>${n.code} · ${mLbl(mm)}</h2><div class="stamp">${r.soMode?"Sản lượng SO × giá bán":"Theo PnL Detail"} · ${fmt(V)} thùng · BM = bình quân ${NPP.length} NPP, các tháng đã chốt</div>
+  <h2>${n.code} · ${mLbl(mm)}</h2><div class="stamp">${r.soMode?"Sản lượng SO × giá bán":r.edeMode?"SO theo kênh × giá EDE":"Theo PnL Detail"} · ${fmt(V)} thùng · BM = bình quân ${NPP.length} NPP, các tháng đã chốt</div>
   ${IS_ADMIN?dataSrcLine():""}
   ${checklist()}
   <div class="kpis">
@@ -466,7 +508,10 @@ $("#fileGis").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     const H=rows[h],ix=k=>H.indexOf(k),iD=ix("Discode"),iN=ix("Name"),i1=ix("Val01"),i2=ix("Val02"),iT=ix("InputDate"),iG=ix("GroupLvl01");
     const prices={},fuelG={},costs={};let n=0,nf=0,nc=0;const i3=ix("Val03");
     for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||!r[iN])continue;const name=String(r[iN]),m=name.match(/^\s*([A-Z0-9]+)\s+-\s+/);
-      const cg=String(r[iG]||"");if(/^3\./.test(cg)&&iT>=0){const ck=gisCostKey(name);if(ck){const d=toDate(r[iT]),pm=d&&ym(d)?addM(ym(d),-1):null;
+      const cg=String(r[iG]||"");
+      if(/^[245]\./.test(cg)&&iT>=0){const ek=edeKey(name);if(ek){const d=toDate(r[iT]),pm=d&&ym(d)?addM(ym(d),-1):null;
+        if(pm){const dis=String(r[iD]),slot=((costs[dis]=costs[dis]||{})[pm]=costs[dis][pm]||{}),t=+d;if(!slot[ek]||slot[ek].t<=t)slot[ek]={v:parseNum(r[i1]),t};nc++}}continue}
+      if(/^3\./.test(cg)&&iT>=0){const ck=gisCostKey(name);if(ck){const d=toDate(r[iT]),pm=d&&ym(d)?addM(ym(d),-1):null;
         if(pm){const dis=String(r[iD]),slot=((costs[dis]=costs[dis]||{})[pm]=costs[dis][pm]||{}),t=+d;
           if(!slot[ck.k]||slot[ck.k].t<=t){const v1=parseNum(r[i1]),v2=parseNum(r[i2]),v3=i3>=0&&r[i3]!=null&&r[i3]!==""?parseNum(r[i3]):null;
             slot[ck.k]=ck.kind==="ops"?{q:v1,v:v2,s:v3,t}:{v:v1,p:v2,t}}
@@ -511,8 +556,35 @@ $("#fileTms").addEventListener("change",async e=>{const f=e.target.files[0];if(!
 $("#tmsReset").onclick=()=>{S.tmsSum={};LS.set("tmsSum",{});refreshAll()};
 $("#amtReset").onclick=()=>{S.si=SI_DEFAULT;LS.set("si",null);refreshAll()};
 $("#soReset").onclick=()=>{S.so=SO_DEFAULT;LS.set("so",null);fillMonths(S.so.month);loadNpp()};
-$("#gisReset").onclick=()=>{S.gis={file:null,prices:{}};LS.set("gis",S.gis);refreshAll()};
+$("#gisReset").onclick=()=>{S.gis=BUN.gis||{file:null,prices:{}};LS.set("gis",null);refreshAll();loadNpp()};
+// SaleOut by Segment: cộng UOM theo Seller_ID × Calendar_Month × ShortCode × Outlet_Segment
+$("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#segStatus");status(st,"","Đang đọc file…");
+  try{const rows=await readRows(f),h=findHdr(rows,["Seller_ID","Outlet_Segment","Calendar_Month","ShortCode"]);if(h<0)throw new Error("Không thấy các cột Seller_ID, Outlet_Segment, Calendar_Month, ShortCode");
+    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iO=ix("Outlet_Segment"),iM=ix("Calendar_Month"),iK=ix("ShortCode"),iQ=ix("UOM")>=0?ix("UOM"):ix("Quantity");if(iQ<0)throw new Error("Không thấy cột UOM (sản lượng thùng)");
+    const data={},ms=new Set();let n=0;
+    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iK]==null)continue;const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;
+      const m=mm.slice(0,4)+"-"+mm.slice(4,6),dis=String(r[iS]).trim(),sku=String(r[iK]).trim(),seg=String(r[iO]||"(trống)").trim(),q=parseNum(r[iQ]);if(!q)continue;
+      const a=(((data[dis]=data[dis]||{})[m]=data[dis][m]||{})[sku]=data[dis][m][sku]||{});a[seg]=(a[seg]||0)+q;ms.add(m);n++}
+    if(!n)throw new Error("File không có dòng sản lượng nào");
+    S.soseg={file:f.name,months:[...ms].sort(),data};LS.set("soseg",S.soseg);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.soseg.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
+  }catch(err){status(st,"bad",esc(err.message))}});
+$("#segReset").onclick=()=>{S.soseg=BUN.soseg||null;LS.set("soseg",null);refreshAll();loadNpp()};
+// Mã hoá gói dữ liệu bằng khoá công khai (RSA-OAEP + AES-GCM); chỉ GitHub Actions có khoá bí mật INBOX_KEY để mở
+$("#packBtn").addEventListener("click",async()=>{const st=$("#packStatus");
+  try{if(!edeCount())throw new Error("Chưa có dữ liệu EDE: nạp file EDE Input PnL trước.");if(!S.soseg)throw new Error("Chưa có dữ liệu SaleOut by Segment: nạp file trước.");
+    status(st,"","Đang mã hoá…");const at=new Date().toLocaleString("vi-VN"),body=new TextEncoder().encode(JSON.stringify({at,gis:S.gis,soseg:S.soseg}));
+    const ak=await crypto.subtle.generateKey({name:"AES-GCM",length:256},true,["encrypt"]),iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},ak,body));
+    const pub=await crypto.subtle.importKey("jwk",{...INBOX_PUB,ext:true},{name:"RSA-OAEP",hash:"SHA-256"},false,["encrypt"]);
+    const wk=new Uint8Array(await crypto.subtle.encrypt({name:"RSA-OAEP"},pub,await crypto.subtle.exportKey("raw",ak)));
+    const b64=u=>{let s="";for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode(...u.subarray(i,i+32768));return btoa(s)};
+    await saveBlob("inbox.sealed",new Blob([JSON.stringify({v:1,at,wk:b64(wk),iv:b64(iv),ct:b64(ct)})],{type:"application/json"}));
+    status(st,"ok",`Đã tạo inbox.sealed (${fmt(ct.length/1024)} KB, đóng gói lúc ${at}). Upload vào thư mục src trên GitHub để cập nhật trang.`);
+  }catch(err){status(st,"bad",esc(err.message))}});
+const edeCount=()=>Object.keys(S.gis.costs||{}).length;
 function renderSrc(){
+  const sg=S.soseg;status($("#segStatus"),sg?"ok":"bad",sg?`Đang dùng: <b>${esc(sg.file)}</b>${!LS.get("soseg",null)&&BUN.soseg?" (bản build)":""} · ${Object.keys(sg.data).length} NPP · ${sg.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleOut by Segment.");
+  status($("#packStatus"),BUN.at?"ok":"",BUN.at?`Bản build đang dùng gói dữ liệu đóng gói lúc <b>${esc(BUN.at)}</b>.`:"Bản build chưa có gói dữ liệu EDE / SaleOut.");
   const so=S.so;status($("#soStatus"),so?"ok":"",so?`Đang dùng: <b>${esc(so.file)}</b> · tháng ${mLbl(so.month)} · ${Object.keys(so.data).length} NPP`:"Chưa có file SO");
   const tm=Object.keys(Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{})).sort();status($("#tmsStatus"),"ok",`Đã có số chuyến các tháng: ${tm.map(mLbl).join(", ")} (T6–T9 nạp sẵn từ file bạn gửi).`);
   const A=S.si;status($("#amtStatus"),A?"ok":"",A?`Đang dùng: <b>${esc(A.file)}</b> · cột ${esc(A.col)} · tháng ${mLbl(A.month)} · ${Object.keys(A.data).length} NPP`:"Chưa nạp file SI by Amount.");

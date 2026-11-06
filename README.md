@@ -14,6 +14,7 @@ Công cụ mô phỏng P&L nhà phân phối (tháng M-1, tham chiếu M-2), tri
    - `NPP_PASSWORD`: mật khẩu dùng chung cho tất cả NPP
    - `DATA_KEY`: khoá giải mã dữ liệu nguồn (được cung cấp riêng, không đưa lên repo)
    - `API_URL`: địa chỉ Web app Google Apps Script nhận bài nộp NPP (xem `server/README.md`)
+   - `INBOX_KEY`: khoá bí mật mở gói dữ liệu EDE Input + SaleOut by Segment (`src/inbox.sealed`), được cung cấp riêng
 2. **Settings → Secrets and variables → Actions → Variables** (tuỳ chọn): `ADMIN_USER` nếu muốn đổi tên Admin (mặc định `admin`).
 3. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 4. Vào tab **Actions → Deploy P&L Tool → Run workflow** (hoặc push lên `main`).
@@ -43,6 +44,15 @@ git add src/data.enc && git commit -m "Update data" && git push
 ```
 
 Không commit file dữ liệu thô.
+
+### Cập nhật EDE Input PnL + SaleOut by Segment (không cần chạy lệnh)
+
+1. Đăng nhập Admin → tab **Dữ liệu nguồn** → nạp file **EDE Input PnL** (export cả năm) và **SaleOut by Segment** (nhiều tháng).
+2. Bấm **Đóng gói & tải inbox.sealed**. File đã được mã hoá bằng khoá công khai `scripts/inbox-public.json`.
+3. Trên GitHub: thư mục `src` → **Add file → Upload files** → chọn `inbox.sealed` (ghi đè file cũ) → **Commit**.
+4. GitHub Actions dùng secret `INBOX_KEY` giải mã và nhúng vào trang đã mã hoá, nên NPP cũng thấy số EDE.
+
+Thẻ P&L tháng đã chốt có EDE tính như sau: sản lượng tổng theo PnL Detail; SDIS × giá Val01; On-Off = phần còn lại × giá Val02 điều chỉnh để doanh thu khớp PnL Detail. Chi phí = VND (Val02) × % share (Val03), riêng thuê kho = m² × đơn giá × % share. Market investment, Capital cost = Val01 × Val02%. Current account, Credit for Outlets = Val01. Remaining value hiển thị Val01, tính P&L = Val01 × % share kho ÷ 3 (NPP không có xe tải × 2/3). CD, DIP, Other income, Inventory, CD hold, Cash deposit lấy PnL Detail.
 
 ### Cập nhật sổ TSCĐ (tab Khấu hao)
 

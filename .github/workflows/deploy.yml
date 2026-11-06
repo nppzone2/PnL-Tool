@@ -29,6 +29,7 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           NPP_PASSWORD: ${{ secrets.NPP_PASSWORD }}
           API_URL: ${{ secrets.API_URL }}
+          INBOX_KEY: ${{ secrets.INBOX_KEY }}
           ADMIN_USER: ${{ vars.ADMIN_USER }}
       - name: Đóng gói thư viện Excel cùng trang (không phụ thuộc CDN)
         run: curl -fsSL https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js -o dist/xlsx.bundle.js
