@@ -42,10 +42,28 @@ if (existsSync("src/fa.enc")) {
   faJson = dec.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(fs.iv) }, kf, unb64(fs.ct)));
 }
 
+// 1c. Gói dữ liệu EDE Input + SaleOut by Segment (src/inbox.sealed), do Admin đóng gói trên web bằng khoá công khai.
+// GitHub Actions giải mã bằng secret INBOX_KEY (khoá bí mật RSA) rồi nhúng vào trang đã mã hoá, nên NPP cũng thấy số EDE.
+let bundleJson = "null";
+if (existsSync("src/inbox.sealed")) {
+  const IK = process.env.INBOX_KEY;
+  if (!IK) console.warn("Cảnh báo: có src/inbox.sealed nhưng thiếu secret INBOX_KEY, bản build chưa có dữ liệu EDE.");
+  else {
+    try {
+      const sb = JSON.parse(await readFile("src/inbox.sealed", "utf8"));
+      const pk = await crypto.subtle.importKey("pkcs8", unb64(IK.trim()), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
+      const raw = new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP" }, pk, unb64(sb.wk)));
+      const txt = dec.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(sb.iv) }, await aesKey(raw, ["decrypt"]), unb64(sb.ct)));
+      JSON.parse(txt); bundleJson = txt;
+      console.log(`Đã nhúng gói dữ liệu EDE/SaleOut (đóng gói lúc ${sb.at || "?"}).`);
+    } catch (e) { console.error("INBOX_KEY không giải mã được src/inbox.sealed: " + e.message); process.exit(1); }
+  }
+}
+
 // 2. Mã hoá payload (dữ liệu + app) bằng CK
 const ck = crypto.getRandomValues(new Uint8Array(32));
 const iv = crypto.getRandomValues(new Uint8Array(12));
-const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst FA_DATA=" + faJson + ";\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
+const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst FA_DATA=" + faJson + ";\nconst BUNDLE=" + bundleJson + ";\nconst INBOX_PUB=" + (await readFile("scripts/inbox-public.json", "utf8")).trim() + ";\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
 
 // 3. Bọc CK theo từng quyền
 async function wrap(pw, role, user) {

@@ -202,10 +202,16 @@ details.autosec[hidden]{display:none!important}
         <summary><span class="t"><span class="idx">1</span>Sản lượng &amp; doanh thu</span><span class="tag" id="volTag">SO × Giá bán</span></summary>
         <div class="body">
           <div class="mode" role="radiogroup" aria-label="Nguồn sản lượng">
+            <label><input type="radio" name="mode" id="modeEde" value="ede"><span>Theo kênh &amp; giá EDE</span></label>
             <label><input type="radio" name="mode" id="modeSo" value="so"><span>Theo SO &amp; Giá bán</span></label>
             <label><input type="radio" name="mode" id="modeTot" value="tot"><span>Theo PnL Detail</span></label>
           </div>
           <div id="soBox"><div id="soSummary"></div></div>
+          <div id="edeBox" hidden>
+            <div id="edeSum"></div>
+            <div class="row2"><label for="onoffP">Giá On-Off bình quân dùng cho P&amp;L<small>Đã điều chỉnh để doanh thu khớp PnL Detail <span class="src">EDE Input</span></small></label><input class="v" id="onoffP" inputmode="decimal"></div>
+            <details class="autosec"><summary>Giá theo SKU: Sdis (Val01) · On-Off (Val02) · On-Off điều chỉnh</summary><div class="scroll" id="edeSku"></div></details>
+          </div>
           <div id="totBox">
             <div class="row2"><label for="totVol">Tổng sản lượng (thùng)<small>1. Total_Volume <span class="src">PnL Detail</span></small></label><input class="v" id="totVol" inputmode="decimal"></div>
             <div class="row2"><label for="totSell">Giá bán sales out bình quân<small>Sales revenue ÷ Volume <span class="src">PnL Detail</span></small></label><input class="v" id="totSell" inputmode="decimal"></div>
@@ -216,7 +222,7 @@ details.autosec[hidden]{display:none!important}
       </details>
 
       <details class="sec" open>
-        <summary><span class="t"><span class="idx">2</span>Operation cost</span><span class="tag">Qty × VND × % share</span></summary>
+        <summary><span class="t"><span class="idx">2</span>Operation cost</span><span class="tag">VND × % share</span></summary>
         <div class="body"><div class="scroll"><table class="in" id="opT">
           <thead><tr><th>Hạng mục</th><th>Qty</th><th>VND</th><th>% share</th></tr></thead><tbody></tbody>
         </table></div>
@@ -383,10 +389,22 @@ details.autosec[hidden]{display:none!important}
         <div class="toolbar"><button type="button" id="soReset">Dùng lại file SO mặc định</button></div>
       </div>
       <div class="card">
-        <h2>File PnL GIS Input</h2>
-        <p class="lead">Export đầy đủ, có các dòng giá bán: cột Name là sản phẩm, Val01 là giá Wholesale, Val02 là giá Retail. Các dòng chi phí (nhóm 3. Operation cost): Val01 = Qty, Val02 = VND, Val03 = % share, dùng cho mục 2 của tháng đã chốt.</p>
+        <h2>File EDE Input PnL</h2>
+        <p class="lead">Export đầy đủ cả năm (PnL GIS Input). Giá bán: Val01 = Sdis, Val02 = On-Off. Chi phí (nhóm 3): Val01 = Qty, Val02 = VND tổng, Val03 = % share. Vốn, thuế, thu nhập khác (nhóm 2, 4, 5): Val01. Lần nhập trong tháng M là số P&amp;L tháng M-1.</p>
         <div class="drop" style="margin-top:12px"><input type="file" id="fileGis" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="gisStatus"></div></div>
         <div class="toolbar"><button type="button" id="gisReset">Xoá giá GIS đã nạp</button></div>
+      </div>
+      <div class="card">
+        <h2>File SaleOut by Segment</h2>
+        <p class="lead">Export nhiều tháng: Seller_ID, Outlet_Segment, Calendar_Month, ShortCode, UOM (case). Dùng tách sản lượng SDIS / On-Off cho mục 1 thẻ P&amp;L, thay cho file SO theo ngày giao ở các tháng có trong file.</p>
+        <div class="drop" style="margin-top:12px"><input type="file" id="fileSeg" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="segStatus"></div></div>
+        <div class="toolbar"><button type="button" id="segReset">Dùng lại số trong bản build</button></div>
+      </div>
+      <div class="card">
+        <h2>Đóng gói dữ liệu cho NPP</h2>
+        <p class="lead">Sau khi nạp file EDE và SaleOut, bấm nút để tải file <b>inbox.sealed</b> (đã mã hoá). Vào GitHub repo, mở thư mục <b>src</b> → Add file → Upload files, chọn file này rồi Commit. GitHub Actions tự giải mã và cập nhật trang cho cả NPP.</p>
+        <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="packBtn">Đóng gói &amp; tải inbox.sealed</button></div>
+        <div class="status" id="packStatus"></div>
       </div>
       <div class="card">
         <h2>File TMS Order Detail</h2>
@@ -405,6 +423,7 @@ details.autosec[hidden]{display:none!important}
       <h2>Quy tắc tính</h2>
       <ul class="rules">
         <li>Tháng P&amp;L của một lần nhập GIS = tháng của InputDate trừ 1 (ví dụ nhập 16/09 là số của tháng 8). Đã đối chiếu khớp với PnL Detail.</li>
+        <li>Thẻ P&amp;L tháng đã chốt có EDE: sản lượng tổng theo PnL Detail; SDIS (Outlet_Segment Sub Distributor) × giá Val01; On-Off = phần còn lại × giá Val02 điều chỉnh để doanh thu khớp PnL Detail. Chi phí = VND × % share, thuê kho = m² × đơn giá × % share. Market investment, Capital cost = Val01 × Val02%. Current account, Credit for Outlets = Val01. Remaining value hiển thị Val01, tính P&amp;L = Val01 × % share kho ÷ 3 (NPP không có xe tải × 2/3). CD, DIP, Other income, Inventory, CD hold, Cash deposit lấy PnL Detail.</li>
         <li>Giá tham chiếu của tháng M lấy lần nhập cuối cùng của tháng M-1. Nếu không có thì lùi về M-2, tối đa M-3.</li>
         <li>Doanh thu = Σ SKU (SL SDIS × giá Sdis + SL OFF × giá OFF + SL ON × giá ON). SKU chưa có giá và chưa có tham chiếu dùng giá bán bình quân của NPP ở tháng gần nhất đã chốt.</li>
         <li>COGS = sản lượng SO × giá mua bình quân / thùng của tháng trong PnL Detail. Chi phí vận hành và vốn của tháng chưa chốt lấy theo tháng liền trước.</li>
