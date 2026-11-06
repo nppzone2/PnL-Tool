@@ -47,12 +47,12 @@ Không commit file dữ liệu thô.
 
 ### Cập nhật EDE Input PnL + SaleOut by Segment (không cần chạy lệnh)
 
-1. Đăng nhập Admin → tab **Dữ liệu nguồn** → nạp file **EDE Input PnL** (export cả năm) và **SaleOut by Segment** (nhiều tháng).
+1. Đăng nhập Admin → tab **Dữ liệu nguồn** → nạp file **PnL Detail** (cả năm), **EDE Input PnL** (export cả năm) và **SaleOut by Segment** (nhiều tháng). PnL Detail trong gói sẽ ghi đè số trong `data.enc`, nên cập nhật hằng tháng không cần DATA_KEY.
 2. Bấm **Đóng gói & tải inbox.sealed**. File đã được mã hoá bằng khoá công khai `scripts/inbox-public.json`.
 3. Trên GitHub: thư mục `src` → **Add file → Upload files** → chọn `inbox.sealed` (ghi đè file cũ) → **Commit**.
 4. GitHub Actions dùng secret `INBOX_KEY` giải mã và nhúng vào trang đã mã hoá, nên NPP cũng thấy số EDE.
 
-Thẻ P&L tháng đã chốt có EDE tính như sau: sản lượng tổng theo PnL Detail; SDIS × giá Val01; On-Off = phần còn lại; giá On-Off từng SKU theo cấu trúc OFF/ON NPP nhập trên web tháng gần nhất (T9), cộng/trừ đều cho mọi SKU để khớp doanh thu PnL Detail, bình quân theo SL OFF/ON của tháng, làm tròn 1.000 đ; phần lệch dồn vào SKU tỷ trọng cao nhất (làm tròn 500 đ). Chi phí = VND (Val02) × % share (Val03), riêng thuê kho = m² × đơn giá × % share. Market investment, Capital cost = Val01 × Val02%. Current account, Credit for Outlets = Val01. Remaining value hiển thị Val01, tính P&L = Val01 × % share kho ÷ 3 (NPP không có xe tải × 2/3). CD, DIP, Other income, Inventory, CD hold, Cash deposit lấy PnL Detail.
+Thẻ P&L tháng đã chốt có EDE tính như sau: sản lượng tổng theo PnL Detail; SDIS × giá Val01; On-Off = phần còn lại; giá On-Off từng SKU theo cấu trúc OFF/ON NPP nhập trên web tháng gần nhất (T9), cộng/trừ đều cho mọi SKU để khớp doanh thu PnL Detail, bình quân theo SL OFF/ON của tháng, làm tròn 1.000 đ; phần lệch dồn vào SKU tỷ trọng cao nhất (làm tròn 500 đ). Chi phí = VND (Val02) × % share (Val03), riêng thuê kho = m² × đơn giá × % share. Market investment, Capital cost = Val01 × Val02%. Current account, Credit for Outlets = Val01. Remaining value hiển thị Val01, tính P&L = Val01 × (% share khấu hao xe tải + xe nâng + thiết bị VP) ÷ 3. CD, DIP, Other income, Inventory, CD hold, Cash deposit lấy PnL Detail.
 
 ### Cập nhật sổ TSCĐ (tab Khấu hao)
 
