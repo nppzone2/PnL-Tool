@@ -180,8 +180,11 @@ const edePr=(dis,m)=>((S.gis.prices||{})[dis]||{})[m]||null;
 const r1k=v=>Math.round(v/1000)*1000,r500=v=>Math.round(v/500)*500;
 function edeOk(){const n=cur(),mm=mon(),m=n.months[mm];if(!m||m.open||!m.vol||!segHas(mm)||!edePr(n.id,mm))return false;const so=soFor(n.id,mm);return !!(so&&Object.keys(so).length)}
 // Giá NPP nhập trên web (tab Giá bán) của tháng gần nhất có số, dùng làm mẫu cấu trúc OFF/ON
+// Không có giá nhập trên web thì lấy giá On-Off (Val02) của lần nhập EDE mới nhất (P&L T9 khi file EDE có lần nhập tháng 10)
 function tplPrices(dis){const ks=Object.keys(S.prices||{}).filter(k=>k.startsWith(dis+"|")&&Object.values(S.prices[k]||{}).some(p=>p&&(p.OFF||p.ON))).sort();
-  const k=ks.pop();return k?{m:k.split("|")[1],p:S.prices[k]}:null}
+  const k=ks.pop();if(k)return {m:k.split("|")[1],p:S.prices[k],src:"web"};
+  const g=(S.gis.prices||{})[dis]||{},em=Object.keys(g).sort().pop();if(!em)return null;
+  const p={};for(const sku in g[em]){const r=g[em][sku];if(r&&r.rt)p[sku]={OFF:r.rt,ON:r.rt}}return {m:em,p,src:"EDE"}}
 function edeRev(){const n=cur(),mm=mon(),m=n.months[mm],so=soFor(n.id,mm)||{},pr=edePr(n.id,mm)||{},tp=tplPrices(n.id);
   let Vs=0,sRev=0,Vso=0;const rows=[],miss=[];
   for(const sku of skuList(so,false)){const r=so[sku],qs=r.SDIS,qf=r.OFF+r.NA,qn=r.ON,qo=qf+qn;if(!qs&&!qo)continue;const p=pr[sku]||{};let ws=p.ws||null,rt=p.rt||null;
@@ -204,7 +207,7 @@ function renderEde(){const box=$("#edeSum");if(!box||$("#edeBox").hidden)return;
   box.innerHTML=`<div class="stats"><div class="stat"><div class="k"><span class="chip SDIS">SDIS</span> giá Val01</div><div class="v">${fmt(e.Vs)}</div><small class="muted">${fmt(sAvg)} đ/thùng</small></div>
     <div class="stat"><div class="k">On-Off</div><div class="v">${fmt(e.Vo)}</div><small class="muted">Val02 ${fmt(e.avgRt)} → P&amp;L ${fmt(e.Po)} đ (${e.Po-e.avgRt>0?"+":""}${fmt(e.Po-e.avgRt)})</small></div>
     <div class="stat"><div class="k">Doanh thu</div><div class="v">${fmt(e.rev/1e6,1)} tr</div><small class="${ok?"muted":"neg"}">${ok?"✓ khớp PnL Detail":"chênh "+(d>0?"+":"")+fmt(d)+" đ do làm tròn"}</small></div></div>
-    <p class="hint">${e.tp?`Cấu trúc giá OFF/ON theo giá NPP nhập ${mLbl(e.tp.m)}, ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng cho mọi SKU`:`Chưa có giá NPP nhập trên web, dùng Val02 ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng`}; bình quân theo SL OFF/ON của ${mLbl(mon())}, làm tròn 1.000 đ, phần lệch dồn vào SKU tỷ trọng cao nhất (làm tròn 500 đ).
+    <p class="hint">${e.tp?`Cấu trúc giá theo ${e.tp.src==="web"?"giá OFF/ON NPP nhập trên web":"giá On-Off (Val02) EDE"} ${mLbl(e.tp.m)}, ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng cho mọi SKU`:`Chưa có giá NPP nhập trên web, dùng Val02 ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng`}; bình quân theo SL OFF/ON của ${mLbl(mon())}, làm tròn 1.000 đ, phần lệch dồn vào SKU tỷ trọng cao nhất (làm tròn 500 đ).
     Sản lượng PnL Detail ${fmt(e.V)} thùng · SaleOut by Segment ${fmt(e.Vseg)} thùng${gap?` (chênh ${gap>0?"+":""}${fmt(gap)} thùng, tính vào On-Off)`:""}.${e.miss.length?` SKU chưa có giá EDE, đang dùng giá tham chiếu: ${e.miss.join(", ")}.`:""}</p>`;
   $("#edeSku").innerHTML=`<table class="dt"><thead><tr><th class="l">SKU</th><th>SL SDIS</th><th>Sdis (Val01)</th><th>SL OFF</th><th>SL ON</th><th>On-Off (Val02)</th><th>OFF${e.tp?" "+mLbl(e.tp.m):""}</th><th>ON${e.tp?" "+mLbl(e.tp.m):""}</th><th>On-Off P&amp;L</th></tr></thead><tbody>${e.rows.map(r=>`<tr><td class="l">${esc(r.sku)}${r.top?' <small class="muted">· tỷ trọng cao nhất</small>':""}</td><td>${fmt(r.qs)}</td><td>${fmt(r.ws)}</td><td>${fmt(r.qf)}</td><td>${fmt(r.qn)}</td><td>${fmt(r.rt)}</td><td class="${r.tpl?"":"muted"}">${fmt(r.off)}</td><td class="${r.tpl?"":"muted"}">${fmt(r.on)}</td><td><b>${r.qo?fmt(r.p):"–"}</b></td></tr>`).join("")}</tbody></table>`}
 document.querySelectorAll("input[name=mode]").forEach(r=>r.addEventListener("change",()=>{toggleMode();render(calc())}));
