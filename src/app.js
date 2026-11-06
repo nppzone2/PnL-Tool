@@ -98,7 +98,7 @@ function setNpp(i){$("#selZone").value=zoneOf(NPP[i]);fillNpp(i)}
 $("#opT tbody").innerHTML=OPS.map(o=>`<tr><td class="lbl">${o[1]}<small>${o[2]} · ${GRP[o[3]]}</small></td><td>${inp(o[0]+"_q")}</td><td>${inp(o[0]+"_v")}</td><td>${inp(o[0]+"_s")}</td></tr>`).join("");
 $("#mkT tbody").innerHTML=MKS.map(o=>`<tr><td class="lbl">${o[1]}<small>${o[2]}</small></td><td>${inp(o[0]+"_v")}</td><td>${inp(o[0]+"_p")}</td></tr>`).join("");
 const row=o=>`<div class="row2"><label for="${o[0]}">${o[1]}<small>${o[2]} <span class="src">${o[3]==="GIS"?"EDE Input":"PnL Detail"}</span></small></label>${inp(o[0])}</div>${o[0]==="fixed"?`<p class="hint" id="fixedHint" hidden></p>`:""}`;
-$("#onoffP").addEventListener("input",renderEde);
+$("#onoffP").readOnly=true;
 $("#oiB").innerHTML=OIS.map(row).join("");$("#icB").innerHTML=`<details class="autosec"${IS_ADMIN?" open":" hidden"}><summary>Tự tính Current account · Credit for Outlets</summary><div class="autobox">
   <div class="arow"><label class="sw"><input type="checkbox" id="autoCur"><span>Tự tính <b>Current account</b></span></label>
     <div class="f">Giá trị mua hàng SI ÷ ${inp("wDays")} ngày làm việc × ${inp("bufDays")} ngày dự phòng <label class="sw" style="font-size:12.5px"><input type="checkbox" id="siVat">+ VAT 10%</label></div></div>
@@ -155,7 +155,7 @@ function loadNpp(){
   const so=soFor(n.id,mon());
   $("#modeSo").disabled=!so||!Object.keys(so).length;$("#modeEde").disabled=!edeOk();
   ($("#modeEde").disabled?(so&&Object.keys(so).length?$("#modeSo"):$("#modeTot")):$("#modeEde")).checked=true;
-  set("onoffP",edeOk()?edeRev().Po:"");toggleMode();
+  toggleMode();
   $("#costHint").textContent=m.open?`${mLbl(mon())} chưa chốt trên PnL Detail: chi phí và vốn đang lấy theo ${mLbl(addM(mon(),-1))}, CD/DIP và Inventory lấy theo ${mLbl(mon())}.`:`${gc?"Số nạp từ EDE Input":"Số nạp sẵn là chi phí tháng thực tế"}: chi phí = VND × % share (Qty chỉ để xem; thuê kho = m² × đơn giá × % share). Market investment và Capital cost = VND × % share (bỏ trống % thì lấy nguyên VND).`;
   $("#meta").innerHTML=`<span>DisID <b>${n.id}</b></span><span>${n.region||"Ngoài phạm vi GIS export"} · <b>${n.area}</b></span>`+
     (n.gisLast?`<span>GIS nhập gần nhất <b>${n.gisLast}</b>${n.ddt?" · "+esc(n.ddt):""}</span>`:"")+
@@ -164,24 +164,40 @@ function loadNpp(){
 }
 const modeOf=()=>$("#modeEde").checked&&!$("#modeEde").disabled?"ede":$("#modeSo").checked&&!$("#modeSo").disabled?"so":"tot";
 function toggleMode(){const md=modeOf();$("#soBox").hidden=md!=="so";$("#edeBox").hidden=md!=="ede";$("#totBox").hidden=md!=="tot";$("#volTag").textContent=md==="so"?"SO × Giá bán":md==="ede"?"SO kênh × giá EDE":"PnL Detail";renderEde()}
-// ---- Doanh thu theo kênh (tháng đã chốt có EDE): SDIS × Val01, On-Off × Val02 điều chỉnh để tổng doanh thu khớp PnL Detail
-// Tổng sản lượng giữ theo PnL Detail; phần chênh so với SaleOut by Segment tính vào On-Off
+// ---- Doanh thu theo kênh (tháng đã chốt có EDE): SDIS × Val01; On-Off theo cấu trúc giá OFF/ON NPP nhập trên web (tháng gần nhất, T9),
+// cộng/trừ cùng một mức cho mọi SKU để doanh thu khớp PnL Detail, bình quân theo SL OFF/ON của tháng, làm tròn 1.000 đ;
+// phần lệch do làm tròn dồn vào SKU On-Off tỷ trọng cao nhất (làm tròn 500 đ). Tổng sản lượng giữ theo PnL Detail.
 const edePr=(dis,m)=>((S.gis.prices||{})[dis]||{})[m]||null;
+const r1k=v=>Math.round(v/1000)*1000,r500=v=>Math.round(v/500)*500;
 function edeOk(){const n=cur(),mm=mon(),m=n.months[mm];if(!m||m.open||!m.vol||!segHas(mm)||!edePr(n.id,mm))return false;const so=soFor(n.id,mm);return !!(so&&Object.keys(so).length)}
-function edeRev(){const n=cur(),mm=mon(),m=n.months[mm],so=soFor(n.id,mm)||{},pr=edePr(n.id,mm)||{};
-  let Vs=0,sRev=0,Vso=0,oBase=0;const rows=[],miss=[];
-  for(const sku of skuList(so,false)){const r=so[sku],qs=r.SDIS,qo=r.OFF+r.ON+r.NA;if(!qs&&!qo)continue;const p=pr[sku]||{};let ws=p.ws||null,rt=p.rt||null;
+// Giá NPP nhập trên web (tab Giá bán) của tháng gần nhất có số, dùng làm mẫu cấu trúc OFF/ON
+function tplPrices(dis){const ks=Object.keys(S.prices||{}).filter(k=>k.startsWith(dis+"|")&&Object.values(S.prices[k]||{}).some(p=>p&&(p.OFF||p.ON))).sort();
+  const k=ks.pop();return k?{m:k.split("|")[1],p:S.prices[k]}:null}
+function edeRev(){const n=cur(),mm=mon(),m=n.months[mm],so=soFor(n.id,mm)||{},pr=edePr(n.id,mm)||{},tp=tplPrices(n.id);
+  let Vs=0,sRev=0,Vso=0;const rows=[],miss=[];
+  for(const sku of skuList(so,false)){const r=so[sku],qs=r.SDIS,qf=r.OFF+r.NA,qn=r.ON,qo=qf+qn;if(!qs&&!qo)continue;const p=pr[sku]||{};let ws=p.ws||null,rt=p.rt||null;
     if(!ws||!rt){miss.push(sku);const ref=refPrice(n.id,mm,sku);ws=ws||(ref&&ref.SDIS)||rt||n.lastSell;rt=rt||(ref&&ref.OFF)||ws||n.lastSell}
-    Vs+=qs;sRev+=qs*ws;Vso+=qo;oBase+=qo*rt;rows.push({sku,qs,qo,ws,rt})}
-  const V=m.vol,Vo=V-Vs,avgRt=Vso?oBase/Vso:NaN,Po=Vo>0?(m.rev-sRev)/Vo:NaN;
-  return {V,Vs,sRev,Vso,Vo,oBase,avgRt,Po,rows,miss,act:m.rev,Vseg:Vs+Vso}}
-function renderEde(){const box=$("#edeSum");if(!box||$("#edeBox").hidden)return;const e=edeRev(),po=isBlank("onoffP")?e.Po:val("onoffP"),rev=e.sRev+e.Vo*po,d=rev-e.act;
-  const sAvg=e.Vs?e.sRev/e.Vs:NaN,gap=e.V-e.Vseg,ok=Math.abs(d)<1e3;
+    const t=tp&&tp.p[sku]||{},off=t.OFF||t.ON||rt,on=t.ON||t.OFF||rt,b=qo?(off*qf+on*qn)/qo:rt;
+    Vs+=qs;sRev+=qs*ws;Vso+=qo;rows.push({sku,qs,qo,qf,qn,ws,rt,off,on,b,tpl:!!(t.OFF||t.ON)})}
+  const V=m.vol,Vo=V-Vs,f=Vso?Vo/Vso:0,T=m.rev-sRev;
+  const sb=rows.reduce((a,r)=>a+r.qo*r.b,0),c0=Vso&&f?(T/f-sb)/Vso:0;
+  let top=null;rows.forEach(r=>{if(r.qo&&(!top||r.qo>top.qo))top=r});
+  const revOf=()=>sRev+f*rows.reduce((a,r)=>a+r.qo*r.p,0);
+  // Với mức cộng/trừ c: SKU thường làm tròn 1.000, SKU tỷ trọng cao nhất nhận phần lệch (làm tròn 500)
+  const apply=c=>{rows.forEach(r=>{r.p=r.qo?r1k(r.b+c):0});if(top&&f){const res=m.rev-revOf();top.p=r500(top.p+res/(f*top.qo))}return Math.abs(m.rev-revOf())};
+  // Dò mức c quanh c0 (±1.000 đ, bước 10 đ) để phần lệch do làm tròn nhỏ nhất
+  let c=c0;if(f&&rows.length){let best=Infinity;for(let x=-1000;x<=1000;x+=10){const e=apply(c0+x);if(e<best-1||(Math.abs(e-best)<=1&&Math.abs(x)<Math.abs(c-c0))){best=Math.min(best,e);c=c0+x}}}
+  apply(c);if(top)top.top=true;
+  const rev=Vso&&f?revOf():m.rev,Po=Vo>0?(rev-sRev)/Vo:NaN,avgRt=Vso?rows.reduce((a,r)=>a+r.qo*r.rt,0)/Vso:NaN;
+  return {V,Vs,sRev,Vso,Vo,f,c,avgRt,Po,rev,rows,miss,tp,act:m.rev,Vseg:Vs+Vso}}
+function renderEde(){const box=$("#edeSum");if(!box||$("#edeBox").hidden)return;const e=edeRev(),d=e.rev-e.act,ok=Math.abs(d)<1e3;
+  set("onoffP",e.Po);const sAvg=e.Vs?e.sRev/e.Vs:NaN,gap=e.V-e.Vseg;
   box.innerHTML=`<div class="stats"><div class="stat"><div class="k"><span class="chip SDIS">SDIS</span> giá Val01</div><div class="v">${fmt(e.Vs)}</div><small class="muted">${fmt(sAvg)} đ/thùng</small></div>
-    <div class="stat"><div class="k">On-Off giá Val02</div><div class="v">${fmt(e.Vo)}</div><small class="muted">EDE ${fmt(e.avgRt)} → P&amp;L ${fmt(po)} đ (${po-e.avgRt>0?"+":""}${fmt(po-e.avgRt)})</small></div>
-    <div class="stat"><div class="k">Doanh thu</div><div class="v">${fmt(rev/1e6,1)} tr</div><small class="${ok?"muted":"neg"}">${ok?"✓ khớp PnL Detail":"chênh "+(d>0?"+":"")+fmt(d/1e6,2)+" tr so với PnL Detail"}</small></div></div>
-    <p class="hint">Sản lượng PnL Detail ${fmt(e.V)} thùng · SaleOut by Segment ${fmt(e.Vseg)} thùng${gap?` (chênh ${gap>0?"+":""}${fmt(gap)} thùng, tính vào On-Off)`:""}. SDIS giữ giá Val01; giá On-Off = (doanh thu PnL Detail − doanh thu SDIS) ÷ sản lượng On-Off.${e.miss.length?` SKU chưa có giá EDE, đang dùng giá tham chiếu: ${e.miss.join(", ")}.`:""}</p>`;
-  $("#edeSku").innerHTML=`<table class="dt"><thead><tr><th class="l">SKU</th><th>SL SDIS</th><th>Sdis (Val01)</th><th>SL On-Off (SO)</th><th>On-Off (Val02)</th><th>On-Off điều chỉnh</th></tr></thead><tbody>${e.rows.map(r=>`<tr><td class="l">${esc(r.sku)}</td><td>${fmt(r.qs)}</td><td>${fmt(r.ws)}</td><td>${fmt(r.qo)}</td><td>${fmt(r.rt)}</td><td>${fmt(r.rt*po/e.avgRt)}</td></tr>`).join("")}</tbody></table>`}
+    <div class="stat"><div class="k">On-Off</div><div class="v">${fmt(e.Vo)}</div><small class="muted">Val02 ${fmt(e.avgRt)} → P&amp;L ${fmt(e.Po)} đ (${e.Po-e.avgRt>0?"+":""}${fmt(e.Po-e.avgRt)})</small></div>
+    <div class="stat"><div class="k">Doanh thu</div><div class="v">${fmt(e.rev/1e6,1)} tr</div><small class="${ok?"muted":"neg"}">${ok?"✓ khớp PnL Detail":"chênh "+(d>0?"+":"")+fmt(d)+" đ do làm tròn"}</small></div></div>
+    <p class="hint">${e.tp?`Cấu trúc giá OFF/ON theo giá NPP nhập ${mLbl(e.tp.m)}, ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng cho mọi SKU`:`Chưa có giá NPP nhập trên web, dùng Val02 ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng`}; bình quân theo SL OFF/ON của ${mLbl(mon())}, làm tròn 1.000 đ, phần lệch dồn vào SKU tỷ trọng cao nhất (làm tròn 500 đ).
+    Sản lượng PnL Detail ${fmt(e.V)} thùng · SaleOut by Segment ${fmt(e.Vseg)} thùng${gap?` (chênh ${gap>0?"+":""}${fmt(gap)} thùng, tính vào On-Off)`:""}.${e.miss.length?` SKU chưa có giá EDE, đang dùng giá tham chiếu: ${e.miss.join(", ")}.`:""}</p>`;
+  $("#edeSku").innerHTML=`<table class="dt"><thead><tr><th class="l">SKU</th><th>SL SDIS</th><th>Sdis (Val01)</th><th>SL OFF</th><th>SL ON</th><th>On-Off (Val02)</th><th>OFF${e.tp?" "+mLbl(e.tp.m):""}</th><th>ON${e.tp?" "+mLbl(e.tp.m):""}</th><th>On-Off P&amp;L</th></tr></thead><tbody>${e.rows.map(r=>`<tr><td class="l">${esc(r.sku)}${r.top?' <small class="muted">· tỷ trọng cao nhất</small>':""}</td><td>${fmt(r.qs)}</td><td>${fmt(r.ws)}</td><td>${fmt(r.qf)}</td><td>${fmt(r.qn)}</td><td>${fmt(r.rt)}</td><td class="${r.tpl?"":"muted"}">${fmt(r.off)}</td><td class="${r.tpl?"":"muted"}">${fmt(r.on)}</td><td><b>${r.qo?fmt(r.p):"–"}</b></td></tr>`).join("")}</tbody></table>`}
 document.querySelectorAll("input[name=mode]").forEach(r=>r.addEventListener("change",()=>{toggleMode();render(calc())}));
 
 // ---- revenue from SO
@@ -200,7 +216,7 @@ function fixedCalc(){const el=$("#fixed"),v=val("fixed"),h=$("#fixedHint");const
 function calc(){
   let V,rev,cogs;const md=modeOf(),soMode=md==="so",edeMode=md==="ede";
   if(soMode){const r=soRevenue();V=r.V;rev=r.rev}
-  else if(edeMode){const e=edeRev(),po=isBlank("onoffP")?e.Po:val("onoffP");V=e.V;rev=e.sRev+e.Vo*po;if(!isFinite(rev))rev=e.act}
+  else if(edeMode){const e=edeRev();V=e.V;rev=isFinite(e.rev)?e.rev:e.act}
   else{V=val("totVol");rev=V*val("totSell")}
   cogs=V*val("totBuy");
   const disc=V*val("discWs"),gc=rev-cogs-disc,g={wh:0,tr:0,mg:0,mk:0,cap:0};
