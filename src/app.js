@@ -25,6 +25,14 @@ const LS={get(k,d){try{const v=localStorage.getItem("npppl:"+k);return v?JSON.pa
 // ---- state
 // Gói dữ liệu EDE Input + SaleOut by Segment nhúng lúc build (GitHub Actions); số Admin nạp tay trên máy sẽ ghi đè
 const BUN=(typeof BUNDLE!=="undefined"&&BUNDLE)||{};
+// PnL Detail trong gói dữ liệu (hoặc Admin nạp tay trên máy) ghi đè số tháng của NPP trong bản build, không cần DATA_KEY
+const PNL_SRC=(g=>g&&g.file?g:(BUN.pnl||null))(LS.get("pnl",null));
+if(PNL_SRC)for(const id in PNL_SRC.data){const x=PNL_SRC.data[id];let n=NPP.find(z=>z.id===id);
+  if(!n){n={code:x.code,id,region:"",area:"",months:{}};NPP.push(n)}
+  Object.assign(n.months,x.months);
+  // Tháng mở (chưa chốt) chỉ giữ một tháng ngay sau tháng chốt cuối cùng
+  const ks=Object.keys(n.months).filter(k=>!n.months[k].open).sort(),last=ks[ks.length-1];
+  if(last)for(const k of Object.keys(n.months))if(n.months[k].open&&k<=last)delete n.months[k]}
 const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:(g=>g&&g.file?g:(BUN.gis||{file:null,prices:{}}))(LS.get("gis",null)),soseg:(g=>g&&g.file?g:(BUN.soseg||null))(LS.get("soseg",null)),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
 
 // ---- benchmarks (closed months only)
@@ -145,8 +153,9 @@ function loadNpp(){
     // CIT, Current account, Credit for Outlets, Remaining value: Val01 của EDE
     const ev=k=>gc[k]&&gc[k].v!=null?gc[k].v:null;
     if(ev("cit")!=null)set("cit",ev("cit"));["curAcc","credit"].forEach(k=>{if(ev(k)!=null)set(k,ev(k))});
-    if(ev("fixed")!=null){set("fixed",ev("fixed"));const sh=(gc.hireWh&&gc.hireWh.s!=null?gc.hireWh.s:100),tr=gc.depTruck&&gc.depTruck.v>0;
-      Object.assign($("#fixed").dataset,{fx:String(sh/100*(tr?1/3:2/3)),fxt:`× ${fmt(sh)}% share kho ${tr?"÷ 3":"× 2/3"}`})}
+    // Remaining value tính P&L = Val01 × bình quân % share của 3 dòng khấu hao (xe tải, xe nâng, thiết bị VP; dòng trống = 0%)
+    if(ev("fixed")!=null){set("fixed",ev("fixed"));const sh=["depTruck","depFork","depTools"].map(k=>+((gc[k]||{}).s)||0);
+      Object.assign($("#fixed").dataset,{fx:String(sh.reduce((a,b)=>a+b,0)/300),fxt:`× (${sh.map(x=>fmt(x)+"%").join(" + ")}) ÷ 3`})}
   }
   set("wDays",26);set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
   $("#autoCur").checked=!!m.open&&siAmount(n.id,mon())!=null;$("#autoCred").checked=false;$("#autoCred").closest(".arow").hidden=true;
@@ -209,7 +218,7 @@ function renderSoSummary(){const r=soRevenue();const pct=k=>r.V?fmt(r.src[k]/r.V
   <div class="stat"><div class="k">Giá bán BQ / thùng</div><div class="v">${fmt(r.V?r.rev/r.V:NaN)}</div></div></div>
   <p class="hint">Tổng ${fmt(r.V)} thùng${r.ch.NA?`, trong đó ${fmt(r.ch.NA)} thùng chưa gán Channel (tạm tính giá OFF)`:""}. Nguồn giá theo sản lượng: đã collect ${pct("input")}, giá tham chiếu ${pct("ref")}, giá BQ tháng gần nhất ${pct("avg")}. Nhập giá ở tab <b>Collect price</b>.</p>`}
 
-// Remaining value: hiển thị số nhập EDE (Val01); P&L tính = Val01 × % share kho ÷ 3 (NPP không có xe tải: × 2/3), khớp PnL Detail
+// Remaining value: hiển thị số nhập EDE (Val01); P&L tính = Val01 × (tổng % share 3 dòng khấu hao) ÷ 3, khớp PnL Detail
 function fixedCalc(){const el=$("#fixed"),v=val("fixed"),h=$("#fixedHint");const fx=el.dataset.fx?+el.dataset.fx:null;
   if(h){h.hidden=fx==null;if(fx!=null)h.textContent=`Tính P&L: ${fmt(v)} ${el.dataset.fxt} = ${fmt(v*fx)} đ`}
   return fx==null?v:v*fx}
@@ -584,11 +593,27 @@ $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     if(!n)throw new Error("File không có dòng sản lượng nào");
     S.soseg={file:f.name,months:[...ms].sort(),data};LS.set("soseg",S.soseg);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.soseg.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
+// PnL Detail 2026: mỗi dòng Year_Month × DisID, cột theo mẫu báo cáo PnL Detail
+const PNL_COL={vol:"1. Total_Volume",rev:"2. Sales_revenue",cogs:"3. COGS",disc:"4. Discount_for_Whole_Sales",hireWh:"6.1a Hiring Warehouse",depFork:"6.1b Depreciation Forklift",depTruck:"6.2a Depreciation truck/3 wheels",petro:"6.2b Transport Petro fees (truck)",bike:"6.2c Transport fees (Bike)",trOther:"6.2d Transporation other fee",driver:"6.2e Delivery & Driver",whKeeper:"6.3a WH Keeper, FLT driver & Accountant",dsm:"6.3b DSM cost",mgmt:"6.3c Management cost",office:"6.3d Office expenses",otherFee:"6.3e Other fees",mkWs:"6.4a Wholesales",mkRt:"6.4b Retailers",mkOt:"6.4c Others - Total Makert",capInt:"6.5a Interest expenses",capBad:"6.5b Bad debt provision",capOt:"6.5c Others - Capital cost",cdInt:"7.a CD_Interest",cdAmt:"7.b CD_Amount",dip:"7.c DIP_Amount",oiOther:"7.d Other (Increase price/Promotion)",pbt:"8. Profit_Before_Tax",tax:"9. Income Tax (CIT)",pat:"10. Profit_After_Tax",curAcc:"14.a Current account",credit:"14.b Credit for Outlets",inv:"14.c Inventory",cdHold:"14.d CD_hold",deposit:"14.e Cash deposit & DMF",fixed:"14.f Remaing value fixed assets",roi:"15 ROI(%)",opex:"6.Operating Cost"};
+$("#filePnl").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#pnlStatus");status(st,"","Đang đọc file…");
+  try{const rows=await readRows(f),h=findHdr(rows,["Year_Month","DisID","TenantName"]);if(h<0)throw new Error("Không thấy các cột Year_Month, DisID, TenantName");
+    const H=rows[h].map(x=>String(x??"").trim()),ix=k=>H.indexOf(k),miss=Object.values(PNL_COL).filter(c=>ix(c)<0);if(miss.length)throw new Error("Thiếu cột: "+miss.join(", "));
+    const data={};let n=0;
+    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[ix("DisID")]==null)continue;const d=toDate(r[ix("Year_Month")]),m=d&&!isNaN(d)?ym(new Date(+d+2*864e5)):null;if(!m)continue; // Year_Month là ngày 1, cộng 2 ngày để không lệch tháng do múi giờ
+      const id=String(r[ix("DisID")]).trim(),o={open:false};for(const k in PNL_COL)o[k]=parseNum(r[ix(PNL_COL[k])]);
+      o.depTools=Math.max(0,Math.round(o.opex-[...OPS,...MKS].reduce((a,x)=>a+(x[0]==="depTools"?0:o[x[0]]||0),0)));
+      o.cit=o.pbt>0?Math.round(o.tax/o.pbt*100):20;delete o.opex;delete o.tax;delete o.pbt;
+      const x=data[id]=data[id]||{code:String(r[ix("TenantName")]).trim(),months:{}};x.months[m]=o;n++}
+    if(!n)throw new Error("File không có dòng nào");
+    LS.set("pnl",{file:f.name,data});status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP. Đang tải lại trang…`);setTimeout(()=>location.reload(),900);
+  }catch(err){status(st,"bad",esc(err.message))}});
+$("#pnlReset").onclick=()=>{LS.set("pnl",null);location.reload()};
 $("#segReset").onclick=()=>{S.soseg=BUN.soseg||null;LS.set("soseg",null);refreshAll();loadNpp()};
 // Mã hoá gói dữ liệu bằng khoá công khai (RSA-OAEP + AES-GCM); chỉ GitHub Actions có khoá bí mật INBOX_KEY để mở
 $("#packBtn").addEventListener("click",async()=>{const st=$("#packStatus");
   try{if(!edeCount())throw new Error("Chưa có dữ liệu EDE: nạp file EDE Input PnL trước.");if(!S.soseg)throw new Error("Chưa có dữ liệu SaleOut by Segment: nạp file trước.");
-    status(st,"","Đang mã hoá…");const at=new Date().toLocaleString("vi-VN"),body=new TextEncoder().encode(JSON.stringify({at,gis:S.gis,soseg:S.soseg}));
+    if(!PNL_SRC)throw new Error("Chưa có dữ liệu PnL Detail: nạp file PnL Detail trước.");
+    status(st,"","Đang mã hoá…");const at=new Date().toLocaleString("vi-VN"),body=new TextEncoder().encode(JSON.stringify({at,gis:S.gis,soseg:S.soseg,pnl:PNL_SRC}));
     const ak=await crypto.subtle.generateKey({name:"AES-GCM",length:256},true,["encrypt"]),iv=crypto.getRandomValues(new Uint8Array(12));
     const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},ak,body));
     const pub=await crypto.subtle.importKey("jwk",{...INBOX_PUB,ext:true},{name:"RSA-OAEP",hash:"SHA-256"},false,["encrypt"]);
@@ -599,6 +624,7 @@ $("#packBtn").addEventListener("click",async()=>{const st=$("#packStatus");
   }catch(err){status(st,"bad",esc(err.message))}});
 const edeCount=()=>Object.keys(S.gis.costs||{}).length;
 function renderSrc(){
+  const pn=PNL_SRC;status($("#pnlStatus"),pn?"ok":"",pn?`Đang dùng: <b>${esc(pn.file)}</b>${!LS.get("pnl",null)?" (bản build)":""} · ${Object.keys(pn.data).length} NPP · ${[...new Set(Object.values(pn.data).flatMap(x=>Object.keys(x.months)))].sort().map(mLbl).join(", ")}`:"Đang dùng PnL Detail có sẵn trong bản build (data.enc).");
   const sg=S.soseg;status($("#segStatus"),sg?"ok":"bad",sg?`Đang dùng: <b>${esc(sg.file)}</b>${!LS.get("soseg",null)&&BUN.soseg?" (bản build)":""} · ${Object.keys(sg.data).length} NPP · ${sg.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleOut by Segment.");
   status($("#packStatus"),BUN.at?"ok":"",BUN.at?`Bản build đang dùng gói dữ liệu đóng gói lúc <b>${esc(BUN.at)}</b>.`:"Bản build chưa có gói dữ liệu EDE / SaleOut.");
   const so=S.so;status($("#soStatus"),so?"ok":"",so?`Đang dùng: <b>${esc(so.file)}</b> · tháng ${mLbl(so.month)} · ${Object.keys(so.data).length} NPP`:"Chưa có file SO");
