@@ -402,13 +402,13 @@ details.autosec[hidden]{display:none!important}
       </div>
       <div class="card">
         <h2>File SaleIn Amount</h2>
-        <p class="lead">Export nhiều tháng: Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Unit_Price, Sales_Amount. Giá mua theo SKU từng tháng (cộng VAT 10%, H025 8%) dùng dựng khung giá OFF/ON cho thẻ P&amp;L.</p>
+        <p class="lead">Export nhiều tháng: Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Unit_Price, Sales_Amount. Giá mua hiệu lực cuối tháng theo SKU (cộng VAT 10%, H025 8%; tháng tăng giá giữa tháng lấy giá mới) dùng dựng khung giá OFF/ON cho thẻ P&amp;L.</p>
         <div class="drop" style="margin-top:12px"><input type="file" id="fileSi" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="siStatus"></div></div>
         <div class="toolbar"><button type="button" id="siReset">Dùng lại số trong bản build</button></div>
       </div>
       <div class="card">
         <h2>File SaleOut by Segment</h2>
-        <p class="lead">Nên dùng: Seller_ID, Outlet_Segment, Sales_Type, <b>FullDelivDateTime_Month</b> (tháng giao đủ hàng, dạng 202601), ShortCode, Quantity — khớp đúng sản lượng PnL Detail. Vẫn đọc được bản cũ theo Calendar_Month (UOM); hoặc file chi tiết SO theo outlet (cột Quantity, Sales_Type); file chi tiết đơn hàng có cột FullDelivDateTime sẽ tính theo tháng giao đủ hàng, đúng cách PnL Detail ghi sản lượng (nên export ngày đặt từ tháng trước tháng cần lấy). File chỉ có vài NPP sẽ ghi đè đúng các NPP đó. Dòng âm của Company / Office (giao hộ Corporation Purchase) được cộng dương; segment khác âm là trả hàng. Dùng tách sản lượng SDIS / On-Off cho mục 1 thẻ P&amp;L, thay cho file SO theo ngày giao ở các tháng có trong file.</p>
+        <p class="lead">Nên dùng: Seller_ID, Outlet_Segment, Sales_Type, <b>FullDelivDateTime_Month</b> (tháng giao đủ hàng, dạng 202601), ShortCode, Quantity — khớp đúng sản lượng PnL Detail. Vẫn đọc được bản cũ theo Calendar_Month (UOM); hoặc file chi tiết SO theo outlet (cột Quantity, Sales_Type); file chi tiết đơn hàng có cột FullDelivDateTime sẽ tính theo tháng giao đủ hàng, đúng cách PnL Detail ghi sản lượng (nên export ngày đặt từ tháng trước tháng cần lấy). File chỉ có vài NPP sẽ ghi đè đúng các NPP đó. Dòng âm (CO) giữ nguyên số âm như PnL Detail. Dùng tách sản lượng SDIS / On-Off cho mục 1 thẻ P&amp;L, thay cho file SO theo ngày giao ở các tháng có trong file.</p>
         <div class="drop" style="margin-top:12px"><input type="file" id="fileSeg" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="segStatus"></div></div>
         <div class="toolbar"><button type="button" id="segReset">Dùng lại số trong bản build</button></div>
       </div>
