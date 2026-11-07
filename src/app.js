@@ -600,8 +600,8 @@ $("#gisReset").onclick=()=>{S.gis=BUN.gis||{file:null,prices:{}};LS.set("gis",nu
 // SaleOut by Segment: cộng UOM theo Seller_ID × Calendar_Month × ShortCode × Outlet_Segment
 $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#segStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=findHdr(rows,["Seller_ID","Outlet_Segment","ShortCode"]);if(h<0)throw new Error("Không thấy các cột Seller_ID, Outlet_Segment, ShortCode");
-    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iO=ix("Outlet_Segment"),iM=ix("Calendar_Month"),iK=ix("ShortCode"),iQ=ix("UOM")>=0?ix("UOM"):ix("Quantity"),iT=ix("Sales_Type"),iF=ix("FullDelivDateTime")>=0?ix("FullDelivDateTime"):ix("FullDelivDateTime - Month"),iOD=ix("OrderDate");if(iQ<0)throw new Error("Không thấy cột UOM / Quantity (sản lượng thùng)");
-    if(iF<0&&iM<0)throw new Error("Cần cột Calendar_Month hoặc FullDelivDateTime");
+    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iO=ix("Outlet_Segment"),iM=ix("Calendar_Month")>=0?ix("Calendar_Month"):ix("FullDelivDateTime_Month"),iK=ix("ShortCode"),iQ=ix("UOM")>=0?ix("UOM"):ix("Quantity"),iT=ix("Sales_Type"),iF=ix("FullDelivDateTime")>=0?ix("FullDelivDateTime"):ix("FullDelivDateTime - Month"),iOD=ix("OrderDate");if(iQ<0)throw new Error("Không thấy cột UOM / Quantity (sản lượng thùng)");
+    if(iF<0&&iM<0)throw new Error("Cần cột Calendar_Month, FullDelivDateTime_Month hoặc FullDelivDateTime");
     // PnL Detail ghi sản lượng theo tháng giao đủ hàng: file chi tiết đơn có FullDelivDateTime thì lấy tháng giao.
     // Tháng giao đầu tiên của file thiếu đơn đặt từ tháng trước (vd. đơn T12 giao T1) nên bỏ qua, giữ số cũ.
     // Ngày dạng số (Excel) tính theo UTC; ngày dạng chữ trình duyệt hiểu theo giờ máy nên lấy tháng theo giờ máy
