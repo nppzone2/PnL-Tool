@@ -437,7 +437,7 @@ details.autosec[hidden]{display:none!important}
         <li>CD, DIP, Inventory lấy theo tháng đang tính nếu PnL Detail đã có.</li>
         <li>Delivery &amp; Driver tháng chưa chốt = FTE tài xế × lương cứng + thưởng/thùng bình quân T6–T8 × sản lượng TMS. FTE = ngày công tài xế ÷ 26.</li>
         <li>Petro fee xe tải = số lít × giá DO bình quân tháng × % share. Số lít = km kế hoạch TMS × hệ số quãng đường × định mức lít/100 km theo loại xe, đã loại chuyến DSA. Xe máy: số lít gợi ý từ phí bình quân 3 tháng trước, có thể sửa.</li>
-        <li>Current account = Tổng Sales_Amount của NPP trong tháng ở file SaleIn Amount ÷ 26 ngày làm việc × 1,5 ngày dự phòng (số tiền dự phòng để mua hàng tương đương 1,5 ngày). Sales_Amount trong file SaleIn là giá chưa VAT, có thể bật cộng VAT 10%.</li>
+        <li>Current account = Tổng Sales_Amount của NPP trong tháng ở file SaleIn Amount (có VAT theo SKU) ÷ số ngày làm việc của tháng (trừ Chủ nhật) × 1,5 ngày dự phòng (số tiền dự phòng để mua hàng tương đương 1,5 ngày). Sales_Amount trong file SaleIn là giá chưa VAT, có thể bật cộng VAT 10%.</li>
         <li>Credit for Outlets = Sản lượng × giá bán BQ ÷ số ngày trong tháng × số ngày công nợ. Số ngày công nợ mặc định là bình quân 3 tháng gần nhất của từng NPP.</li>
       </ul>
     </div>

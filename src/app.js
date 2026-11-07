@@ -49,7 +49,7 @@ NPP.forEach(n=>{n.avg=agg(closed(n).map(e=>e[1]));const c=closed(n).sort((a,b)=>
 
 const daysIn=m=>new Date(+m.slice(0,4),+m.slice(5),0).getDate();
 NPP.forEach(n=>{const c=closed(n).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,3);n.credHist=c.map(([k,m])=>[k,m.credit/(m.rev/daysIn(k))]).reverse();n.credDays=n.credHist.reduce((a,x)=>a+x[1],0)/n.credHist.length;
-  const [lk,lm]=c[0];n.curCheck={m:lk,act:lm.curAcc,est:lm.rev/26*1.5}});
+  const [lk,lm]=c[0];n.curCheck={m:lk,act:lm.curAcc,est:lm.rev/workDays(lk)*1.5}});
 const GRP_CRED=NPP.reduce((a,n)=>a+n.credDays,0)/NPP.length;
 // ---- helpers
 const cur=()=>NPP[+$("#selNpp").value];
@@ -160,7 +160,7 @@ function loadNpp(){
     if(ev("fixed")!=null){set("fixed",ev("fixed"));const sh=["depTruck","depFork","depTools"].map(k=>+((gc[k]||{}).s)||0);
       Object.assign($("#fixed").dataset,{fx:String(sh.reduce((a,b)=>a+b,0)/300),fxt:`× (${sh.map(x=>fmt(x)+"%").join(" + ")}) ÷ 3`})}
   }
-  set("wDays",26);set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
+  set("wDays",workDays(mon()));set("bufDays",1.5);set("credDays",Math.round(n.credDays*100)/100);
   $("#autoCur").checked=!!m.open&&siAmount(n.id,mon())!=null;$("#autoCred").checked=false;$("#autoCred").closest(".arow").hidden=true;
   document.querySelectorAll("input[data-ref]").forEach(el=>{delete el.dataset.ref;el.placeholder=""});
   applyDepRefs(true);
@@ -524,6 +524,8 @@ $("#addType").onclick=()=>{const t=$("#newType").value.trim();if(!t)return;S.cha
 $("#resetChan").onclick=()=>{S.chan={...DEFAULT_CHAN};LS.set("chan",S.chan);refreshAll()};
 
 function sibuyVat(dis,m){const b=S.sibuy;return b&&b.amtVat&&b.amtVat[dis]&&b.amtVat[dis][m]!=null?b.amtVat[dis][m]:null}
+// Số ngày làm việc của tháng = số ngày trừ Chủ nhật
+function workDays(m){const d=new Date(+m.slice(0,4),+m.slice(5)-1,1);let c=0;while(d.getMonth()===+m.slice(5)-1){if(d.getDay()!==0)c++;d.setDate(d.getDate()+1)}return c}
 function siAmount(dis,m){const b=S.sibuy;return b&&b.amt&&b.amt[dis]&&b.amt[dis][m]!=null?b.amt[dis][m]:null}
 function renderAutoHint(a,rev){const n=cur();
   $("#autoHint").innerHTML=`Giá trị mua hàng (SaleIn Amount) tháng ${mLbl(mon())}: ${a.amt!=null?`<b>${fmt(a.base/1e9,2)} tỷ</b>${$("#siVat").checked?" (đã cộng VAT 10%)":" (chưa VAT)"} từ file ${esc(S.sibuy.file)} → bình quân ${fmt(a.base/val("wDays")/1e6,0)} tr/ngày`:`<b>chưa có</b> trong file SaleIn Amount (cần nạp đúng tháng này), Current account giữ số đang nhập`}.<br>
