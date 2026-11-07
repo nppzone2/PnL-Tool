@@ -598,19 +598,23 @@ $("#gisReset").onclick=()=>{S.gis=BUN.gis||{file:null,prices:{}};LS.set("gis",nu
 // SaleOut by Segment: cộng UOM theo Seller_ID × Calendar_Month × ShortCode × Outlet_Segment
 $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#segStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=findHdr(rows,["Seller_ID","Outlet_Segment","ShortCode"]);if(h<0)throw new Error("Không thấy các cột Seller_ID, Outlet_Segment, ShortCode");
-    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iO=ix("Outlet_Segment"),iM=ix("Calendar_Month"),iK=ix("ShortCode"),iQ=ix("UOM")>=0?ix("UOM"):ix("Quantity"),iT=ix("Sales_Type"),iF=ix("FullDelivDateTime"),iOD=ix("OrderDate");if(iQ<0)throw new Error("Không thấy cột UOM / Quantity (sản lượng thùng)");
+    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iO=ix("Outlet_Segment"),iM=ix("Calendar_Month"),iK=ix("ShortCode"),iQ=ix("UOM")>=0?ix("UOM"):ix("Quantity"),iT=ix("Sales_Type"),iF=ix("FullDelivDateTime")>=0?ix("FullDelivDateTime"):ix("FullDelivDateTime - Month"),iOD=ix("OrderDate");if(iQ<0)throw new Error("Không thấy cột UOM / Quantity (sản lượng thùng)");
     if(iF<0&&iM<0)throw new Error("Cần cột Calendar_Month hoặc FullDelivDateTime");
     // PnL Detail ghi sản lượng theo tháng giao đủ hàng: file chi tiết đơn có FullDelivDateTime thì lấy tháng giao.
     // Tháng giao đầu tiên của file thiếu đơn đặt từ tháng trước (vd. đơn T12 giao T1) nên bỏ qua, giữ số cũ.
     // Ngày dạng số (Excel) tính theo UTC; ngày dạng chữ trình duyệt hiểu theo giờ máy nên lấy tháng theo giờ máy
     const mOf=v=>{if(v instanceof Date||typeof v==="number"||/^\d+(\.\d+)?$/.test(String(v||"").trim()))return ym(toDate(v));const d=toDate(v);return d&&!isNaN(d)?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"):null};
-    let skipM=null;
+    // Cột "FullDelivDateTime - Month" chỉ có tên tháng: lấy năm theo ngày đặt (tháng giao nhỏ hơn tháng đặt thì sang năm sau)
+    const MNAME=["january","february","march","april","may","june","july","august","september","october","november","december"];
+    const delivM=r=>{const v=r[iF],t=String(v??"").trim().toLowerCase(),k=MNAME.indexOf(t);if(k<0)return mOf(v);const om=iOD>=0?mOf(r[iOD]):null;if(!om)return null;
+      let y=+om.slice(0,4);if(k+1<+om.slice(5,7))y++;return y+"-"+String(k+1).padStart(2,"0")};
+    let skipM=null,lastM=null;
     if(iF>=0&&iOD>=0){const cnt={};let tot=0;for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null)continue;const m=mOf(r[iOD]);if(m){cnt[m]=(cnt[m]||0)+1;tot++}}
-      // tháng đặt hàng đầu tiên có số đáng kể (bỏ vài đơn lẻ đặt sớm hơn)
-      const ks=Object.keys(cnt).sort(),avg=tot/Math.max(1,ks.length);skipM=ks.find(k=>cnt[k]>=avg*0.05)||null}
+      // tháng đặt đầu tiên có số đáng kể (bỏ vài đơn lẻ đặt sớm hơn); tháng giao sau tháng đặt cuối cùng cũng thiếu nên bỏ
+      const ks=Object.keys(cnt).sort(),avg=tot/Math.max(1,ks.length),big=ks.filter(k=>cnt[k]>=avg*0.05);skipM=big[0]||null;lastM=big[big.length-1]||null}
     const data={},ms=new Set();let n=0,cp=0;
     for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iK]==null)continue;let m;
-      if(iF>=0){m=mOf(r[iF]);if(!m||(skipM&&m<=skipM))continue}else{const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;m=mm.slice(0,4)+"-"+mm.slice(4,6)}
+      if(iF>=0){m=delivM(r);if(!m||(skipM&&m<=skipM)||(lastM&&m>lastM))continue}else{const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;m=mm.slice(0,4)+"-"+mm.slice(4,6)}
       const dis=String(r[iS]).trim(),sku=String(r[iK]).trim(),seg=String(r[iO]||"(trống)").trim();let q=parseNum(r[iQ]);if(!q)continue;
       // Company / Office: dòng âm là NPP nhờ NPP khác giao hộ (Corporation Purchase), vẫn là SO của NPP nên cộng dương; segment khác âm = trả hàng, trừ khỏi SO
       if(q<0&&seg==="Company / Office"&&(iT<0||String(r[iT]).trim()==="CO")){q=-q;cp+=q}
