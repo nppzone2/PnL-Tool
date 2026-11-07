@@ -1083,7 +1083,7 @@ async function syncMine(){if(IS_ADMIN||!API_URL||!window.__AUTH)return;
 let SUBS=[];
 async function loadSubs(){if(!IS_ADMIN)return;const msg=$("#subMsg");msg.textContent="Đang tải…";
   try{const j=await api("list",{});SUBS=j.items||[];let k=0;SUBS.forEach(x=>{if(applySub(x))k++});
-    if(k){LS.set("ops",S.ops);LS.set("prices",S.prices);refreshAll()}
+    if(k){LS.set("ops",S.ops);LS.set("prices",S.prices);refreshAll();if(modeOf()==="ede"){renderEde();render(calc())}} // giá OFF/ON NPP nhập làm khung giá On-Off thẻ P&L
     msg.textContent=`${SUBS.length} bài nộp · cập nhật lúc ${tLbl(Date.now())}${k?` · vừa nạp ${k} bài mới vào tool`:""}`}
   catch(e){msg.innerHTML=`<span class="errtxt">${esc(e.message)}</span>`}
   renderSubs()}
