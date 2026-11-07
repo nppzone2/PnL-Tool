@@ -60,10 +60,22 @@ if (existsSync("src/inbox.sealed")) {
   }
 }
 
+// 1d. Giá mẫu T9 (giá NPP nhập tháng 9, src/t9.sealed) mã hoá cùng cách với inbox.sealed
+let tplJson = "null";
+if (existsSync("src/t9.sealed") && process.env.INBOX_KEY) {
+  try {
+    const sb = JSON.parse(await readFile("src/t9.sealed", "utf8"));
+    const pk = await crypto.subtle.importKey("pkcs8", unb64(process.env.INBOX_KEY.trim()), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
+    const raw = new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP" }, pk, unb64(sb.wk)));
+    tplJson = dec.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(sb.iv) }, await aesKey(raw, ["decrypt"]), unb64(sb.ct)));
+    JSON.parse(tplJson);
+  } catch (e) { console.error("Không giải mã được src/t9.sealed: " + e.message); process.exit(1); }
+}
+
 // 2. Mã hoá payload (dữ liệu + app) bằng CK
 const ck = crypto.getRandomValues(new Uint8Array(32));
 const iv = crypto.getRandomValues(new Uint8Array(12));
-const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst FA_DATA=" + faJson + ";\nconst BUNDLE=" + bundleJson + ";\nconst INBOX_PUB=" + (await readFile("scripts/inbox-public.json", "utf8")).trim() + ";\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
+const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(ck, ["encrypt"]), enc.encode(data + "\nconst FA_DATA=" + faJson + ";\nconst BUNDLE=" + bundleJson + ";\nconst TPL_T9=" + tplJson + ";\nconst INBOX_PUB=" + (await readFile("scripts/inbox-public.json", "utf8")).trim() + ";\nconst API_URL=" + JSON.stringify(process.env.API_URL || "") + ";\n" + app)));
 
 // 3. Bọc CK theo từng quyền
 async function wrap(pw, role, user) {
