@@ -610,22 +610,27 @@ $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     const MNAME=["january","february","march","april","may","june","july","august","september","october","november","december"];
     const delivM=r=>{const v=r[iF],t=String(v??"").trim().toLowerCase(),k=MNAME.indexOf(t);if(k<0)return mOf(v);const om=iOD>=0?mOf(r[iOD]):null;if(!om)return null;
       let y=+om.slice(0,4);if(k+1<+om.slice(5,7))y++;return y+"-"+String(k+1).padStart(2,"0")};
-    let skipM=null,lastM=null;
-    if(iF>=0&&iOD>=0){const cnt={};let tot=0;for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null)continue;const m=mOf(r[iOD]);if(m){cnt[m]=(cnt[m]||0)+1;tot++}}
-      // tháng đặt đầu tiên có số đáng kể (bỏ vài đơn lẻ đặt sớm hơn); tháng giao sau tháng đặt cuối cùng cũng thiếu nên bỏ
-      const ks=Object.keys(cnt).sort(),avg=tot/Math.max(1,ks.length),big=ks.filter(k=>cnt[k]>=avg*0.05);skipM=big[0]||null;lastM=big[big.length-1]||null}
-    const data={},ms=new Set();let n=0,cp=0;
-    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iK]==null)continue;let m;
-      if(iF>=0){m=delivM(r);if(!m||(skipM&&m<=skipM)||(lastM&&m>lastM))continue}else{const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;m=mm.slice(0,4)+"-"+mm.slice(4,6)}
+    // File có cả OrderDate và tháng giao: lưu theo tháng đặt × tháng giao, để nạp tháng sau vẫn cộng được đơn đặt tháng trước giao tháng sau
+    const byDeliv=iF>=0&&iOD>=0,data={},od={},ms=new Set();let n=0,cp=0;
+    const add=(o,keys,sku,seg,q)=>{let x=o;for(const k of keys)x=x[k]=x[k]||{};x=x[sku]=x[sku]||{};x[seg]=(x[seg]||0)+q};
+    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iK]==null)continue;
       const dis=String(r[iS]).trim(),sku=String(r[iK]).trim(),seg=String(r[iO]||"(trống)").trim();let q=parseNum(r[iQ]);if(!q)continue;
       // Company / Office: dòng âm là NPP nhờ NPP khác giao hộ (Corporation Purchase), vẫn là SO của NPP nên cộng dương; segment khác âm = trả hàng, trừ khỏi SO
       if(q<0&&seg==="Company / Office"&&(iT<0||String(r[iT]).trim()==="CO")){q=-q;cp+=q}
-      const a=(((data[dis]=data[dis]||{})[m]=data[dis][m]||{})[sku]=data[dis][m][sku]||{});a[seg]=(a[seg]||0)+q;ms.add(m);n++}
+      if(byDeliv){const om=mOf(r[iOD]),dm=delivM(r);if(!om||!dm)continue;add(od,[dis,om,dm],sku,seg,q)}
+      else{let m;if(iF>=0)m=delivM(r);else{const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;m=mm.slice(0,4)+"-"+mm.slice(4,6)}if(!m)continue;add(data,[dis,m],sku,seg,q);ms.add(m)}
+      n++}
     if(!n)throw new Error("File không có dòng sản lượng nào");
-    // File chỉ có một số NPP (ví dụ file chi tiết theo outlet): ghi đè đúng NPP × tháng có trong file, giữ nguyên phần còn lại
-    const old=S.soseg,part=!!old,mg=mergeDM(part?old.data:null,data),files=part?joinFiles(old.file,f.name):f.name;
-    S.soseg={file:files,months:[...new Set([...(part?old.months:[]),...ms])].sort(),data:part?mg:data};LS.set("soseg",S.soseg);
-    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP${part?" (nạp tiếp nối: ghi đè đúng NPP × tháng trong file, giữ các tháng khác)":""}, các tháng ${[...ms].sort().map(mLbl).join(", ")}${iF>=0?` theo ngày giao đủ hàng${skipM?` (bỏ ${mLbl(skipM)} vì thiếu đơn đặt từ tháng trước)`:""}`:""}.${cp?` Cộng dương ${fmt(cp)} thùng Company / Office giao hộ.`:""}`);refreshAll();loadNpp();
+    // Nạp tiếp nối: ghi đè đúng NPP × tháng (tháng đặt với file chi tiết đơn), giữ phần còn lại
+    const old=S.soseg,part=!!old,odAll=mergeDM(old&&old.od,od),dataAll=mergeDM(old&&old.data,data),files=part?joinFiles(old.file,f.name):f.name,note=[];
+    // Tháng giao M đủ số khi đã có đơn đặt của tháng trước M và của chính tháng M (bỏ vài đơn lẻ đặt sớm)
+    for(const dis in od){const o=odAll[dis],vol=k=>Object.values(o[k]).reduce((a,x)=>a+Object.values(x).reduce((b,y)=>b+Object.values(y).reduce((c,z)=>c+z,0),0),0);
+      const ks=Object.keys(o).sort(),v=ks.map(vol),avg=v.reduce((a,b)=>a+b,0)/Math.max(1,ks.length),big=ks.filter((k,i)=>v[i]>=avg*0.05),first=big[0],last=big[big.length-1];
+      const dms=[...new Set(ks.flatMap(k=>Object.keys(o[k])))].filter(m=>m>first&&m<=last).sort();
+      for(const m of dms){const agg={};for(const k of ks)if(o[k][m])for(const sku in o[k][m])for(const sg in o[k][m][sku])add(agg,[],sku,sg,o[k][m][sku][sg]);(dataAll[dis]=dataAll[dis]||{})[m]=agg;ms.add(m)}
+      note.push(`${(NPP.find(z=>z.id===dis)||{}).code||dis}: đơn đặt ${mLbl(first)}–${mLbl(last)}, tháng giao đủ ${dms.length?mLbl(dms[0])+"–"+mLbl(dms[dms.length-1]):"chưa có"}`)}
+    S.soseg={file:files,months:[...new Set([...(part?old.months:[]),...ms])].sort(),data:dataAll,od:odAll};LS.set("soseg",S.soseg);
+    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(byDeliv?od:data).length} NPP${part?" (nạp tiếp nối)":""}.${byDeliv?` Tính theo tháng giao đủ hàng · ${note.join(" · ")}.`:` Các tháng ${[...ms].sort().map(mLbl).join(", ")}.`}${cp?` Cộng dương ${fmt(cp)} thùng Company / Office giao hộ.`:""}`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 // PnL Detail 2026: mỗi dòng Year_Month × DisID, cột theo mẫu báo cáo PnL Detail
 const PNL_COL={vol:"1. Total_Volume",rev:"2. Sales_revenue",cogs:"3. COGS",disc:"4. Discount_for_Whole_Sales",hireWh:"6.1a Hiring Warehouse",depFork:"6.1b Depreciation Forklift",depTruck:"6.2a Depreciation truck/3 wheels",petro:"6.2b Transport Petro fees (truck)",bike:"6.2c Transport fees (Bike)",trOther:"6.2d Transporation other fee",driver:"6.2e Delivery & Driver",whKeeper:"6.3a WH Keeper, FLT driver & Accountant",dsm:"6.3b DSM cost",mgmt:"6.3c Management cost",office:"6.3d Office expenses",otherFee:"6.3e Other fees",mkWs:"6.4a Wholesales",mkRt:"6.4b Retailers",mkOt:"6.4c Others - Total Makert",capInt:"6.5a Interest expenses",capBad:"6.5b Bad debt provision",capOt:"6.5c Others - Capital cost",cdInt:"7.a CD_Interest",cdAmt:"7.b CD_Amount",dip:"7.c DIP_Amount",oiOther:"7.d Other (Increase price/Promotion)",pbt:"8. Profit_Before_Tax",tax:"9. Income Tax (CIT)",pat:"10. Profit_After_Tax",curAcc:"14.a Current account",credit:"14.b Credit for Outlets",inv:"14.c Inventory",cdHold:"14.d CD_hold",deposit:"14.e Cash deposit & DMF",fixed:"14.f Remaing value fixed assets",roi:"15 ROI(%)",opex:"6.Operating Cost"};

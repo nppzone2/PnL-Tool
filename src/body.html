@@ -415,7 +415,7 @@ details.autosec[hidden]{display:none!important}
       <div class="card">
         <h2>Đóng gói dữ liệu cho NPP</h2>
         <p class="lead">Sau khi nạp file PnL Detail, EDE, SaleOut và SaleIn, bấm nút để tải file <b>inbox.sealed</b> (đã mã hoá). Vào GitHub repo, mở thư mục <b>src</b> → Add file → Upload files, chọn file này rồi Commit. GitHub Actions tự giải mã và cập nhật trang cho cả NPP.</p>
-        <p class="hint">Nạp tiếp nối: mỗi file mới chỉ ghi đè đúng NPP × tháng có trong file, các tháng đã có được giữ nguyên. Ví dụ thêm tháng 10: nạp PnL Detail, EDE, SaleIn và file đơn hàng (ngày đặt từ 01/09) chỉ của tháng mới rồi đóng gói lại. Muốn làm lại từ đầu thì bấm "Dùng lại số trong bản build" ở từng ô.</p>
+        <p class="hint">Nạp tiếp nối: mỗi file mới chỉ ghi đè đúng NPP × tháng có trong file, các tháng đã có được giữ nguyên. Ví dụ thêm tháng 11: nạp PnL Detail, EDE, SaleIn của tháng 11 và file đơn hàng có ngày đặt từ 01/10 đến 30/11 (lấy chồng 1 tháng để cập nhật đủ đơn tháng 10 giao sang tháng 11) rồi đóng gói lại. Muốn làm lại từ đầu thì bấm "Dùng lại số trong bản build" ở từng ô.</p>
         <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="packBtn">Đóng gói &amp; tải inbox.sealed</button></div>
         <div class="status" id="packStatus"></div>
       </div>
