@@ -402,7 +402,7 @@ details.autosec[hidden]{display:none!important}
       </div>
       <div class="card">
         <h2>File SaleIn Amount</h2>
-        <p class="lead">Export nhiều tháng: Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Unit_Price, Sales_Amount. Giá mua hiệu lực cuối tháng theo SKU (cộng VAT 10%, H025 8%; tháng tăng giá giữa tháng lấy giá mới) dùng dựng khung giá OFF/ON cho thẻ P&amp;L.</p>
+        <p class="lead">Export nhiều tháng: Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Unit_Price, Sales_Amount. Giá mua hiệu lực cuối tháng theo SKU (cộng VAT 10%, H025 8%; tháng tăng giá giữa tháng lấy giá mới) dùng dựng giá OFF/ON và tính Current account (tổng Sales_Amount theo NPP × tháng) cho thẻ P&amp;L. Từ T10 chỉ cần nạp đúng tháng cần làm P&amp;L.</p>
         <div class="drop" style="margin-top:12px"><input type="file" id="fileSi" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="siStatus"></div></div>
         <div class="toolbar"><button type="button" id="siReset">Dùng lại số trong bản build</button></div>
       </div>
@@ -425,12 +425,6 @@ details.autosec[hidden]{display:none!important}
         <div class="drop" style="margin-top:12px"><input type="file" id="fileTms" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="tmsStatus"></div></div>
         <div class="toolbar"><button type="button" id="tmsReset">Xoá file TMS đã nạp thêm</button></div>
       </div>
-      <div class="card">
-        <h2>File SI by Amount</h2>
-        <p class="lead">Dùng tính Current account. Tool cộng cột Sales_Amount theo Distributor_ID của tháng cần tính (theo Date_ID).</p>
-        <div class="drop" style="margin-top:12px"><input type="file" id="fileAmt" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="amtStatus"></div></div>
-        <div class="toolbar"><button type="button" id="amtReset">Dùng lại file SI mặc định</button></div>
-      </div>
     </div>
     <div class="card">
       <h2>Quy tắc tính</h2>
@@ -443,7 +437,7 @@ details.autosec[hidden]{display:none!important}
         <li>CD, DIP, Inventory lấy theo tháng đang tính nếu PnL Detail đã có.</li>
         <li>Delivery &amp; Driver tháng chưa chốt = FTE tài xế × lương cứng + thưởng/thùng bình quân T6–T8 × sản lượng TMS. FTE = ngày công tài xế ÷ 26.</li>
         <li>Petro fee xe tải = số lít × giá DO bình quân tháng × % share. Số lít = km kế hoạch TMS × hệ số quãng đường × định mức lít/100 km theo loại xe, đã loại chuyến DSA. Xe máy: số lít gợi ý từ phí bình quân 3 tháng trước, có thể sửa.</li>
-        <li>Current account = Giá trị mua hàng trong file SI by Amount ÷ 26 ngày làm việc × 1,5 ngày dự phòng (số tiền dự phòng để mua hàng tương đương 1,5 ngày). Sales_Amount trong file SI là giá chưa VAT, có thể bật cộng VAT 10%.</li>
+        <li>Current account = Tổng Sales_Amount của NPP trong tháng ở file SaleIn Amount ÷ 26 ngày làm việc × 1,5 ngày dự phòng (số tiền dự phòng để mua hàng tương đương 1,5 ngày). Sales_Amount trong file SaleIn là giá chưa VAT, có thể bật cộng VAT 10%.</li>
         <li>Credit for Outlets = Sản lượng × giá bán BQ ÷ số ngày trong tháng × số ngày công nợ. Số ngày công nợ mặc định là bình quân 3 tháng gần nhất của từng NPP.</li>
       </ul>
     </div>

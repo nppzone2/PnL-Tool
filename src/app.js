@@ -36,7 +36,7 @@ if(PNL_SRC)for(const id in PNL_SRC.data){const x=PNL_SRC.data[id];let n=NPP.find
   // Tháng mở (chưa chốt) chỉ giữ một tháng ngay sau tháng chốt cuối cùng
   const ks=Object.keys(n.months).filter(k=>!n.months[k].open).sort(),last=ks[ks.length-1];
   if(last)for(const k of Object.keys(n.months))if(n.months[k].open&&k<=last)delete n.months[k]}
-const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:pickSrc("gis")||{file:null,prices:{}},soseg:pickSrc("soseg"),sibuy:pickSrc("sibuy"),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
+const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),so:LS.get("so",null)||SO_DEFAULT,gis:pickSrc("gis")||{file:null,prices:{}},soseg:pickSrc("soseg"),sibuy:pickSrc("sibuy"),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
 
 // ---- benchmarks (closed months only)
 const gsum=(m,g)=>GRPKEYS[g].reduce((a,k)=>a+(m[k]||0),0);
@@ -112,7 +112,7 @@ const row=o=>`<div class="row2"><label for="${o[0]}">${o[1]}<small>${o[2]} <span
 $("#onoffP").readOnly=true;
 $("#oiB").innerHTML=OIS.map(row).join("");$("#icB").innerHTML=`<details class="autosec"${IS_ADMIN?" open":" hidden"}><summary>Tự tính Current account · Credit for Outlets</summary><div class="autobox">
   <div class="arow"><label class="sw"><input type="checkbox" id="autoCur"><span>Tự tính <b>Current account</b></span></label>
-    <div class="f">Giá trị mua hàng SI ÷ ${inp("wDays")} ngày làm việc × ${inp("bufDays")} ngày dự phòng <label class="sw" style="font-size:12.5px"><input type="checkbox" id="siVat">+ VAT 10%</label></div></div>
+    <div class="f">Giá trị mua hàng SI ÷ ${inp("wDays")} ngày làm việc × ${inp("bufDays")} ngày dự phòng <label class="sw" style="font-size:12.5px"><input type="checkbox" id="siVat" checked>+ VAT (H025 8%, còn lại 10%)</label></div></div>
   <div class="arow"><label class="sw"><input type="checkbox" id="autoCred"><span>Tự tính <b>Credit for Outlets</b></span></label>
     <div class="f">Sản lượng × giá bán BQ ÷ số ngày trong tháng × ${inp("credDays")} ngày công nợ</div></div>
   <p class="hint" id="autoHint"></p></div></details>`+ICS.map(row).join("");
@@ -184,7 +184,8 @@ const edePr=(dis,m)=>((S.gis.prices||{})[dis]||{})[m]||null;
 const r1k=v=>Math.round(v/1000)*1000,r500=v=>Math.round(v/500)*500;
 function edeOk(){const n=cur(),mm=mon(),m=n.months[mm];if(!m||m.open||!m.vol||!segHas(mm)||!edePr(n.id,mm))return false;const so=soFor(n.id,mm);return !!(so&&Object.keys(so).length)}
 // Giá NPP nhập trên web (tab Giá bán) của tháng gần nhất có số; chưa có thì lấy giá On-Off (Val02) của lần nhập EDE mới nhất
-function tplPrices(dis){const ks=Object.keys(S.prices||{}).filter(k=>k.startsWith(dis+"|")&&Object.values(S.prices[k]||{}).some(p=>p&&(p.OFF||p.ON))).sort();
+const TPL_M="2026-09"; // giá mẫu cố định: giá NPP nhập tháng T9
+function tplPrices(dis){const k0=dis+"|"+TPL_M;if(S.prices[k0]&&Object.values(S.prices[k0]).some(p=>p&&(p.OFF||p.ON)))return {m:TPL_M,p:S.prices[k0],src:"web"};const ks=Object.keys(S.prices||{}).filter(k=>k.startsWith(dis+"|")&&Object.values(S.prices[k]||{}).some(p=>p&&(p.OFF||p.ON))).sort();
   const k=ks.pop();if(k)return {m:k.split("|")[1],p:S.prices[k],src:"web"};
   const g=(S.gis.prices||{})[dis]||{},em=Object.keys(g).sort().pop();if(!em)return null;
   const p={};for(const sku in g[em]){const r=g[em][sku];if(r&&r.rt)p[sku]={OFF:r.rt,ON:r.rt}}return {m:em,p,src:"EDE"}}
@@ -248,7 +249,7 @@ function calc(){
   OPS.forEach(o=>{const sh=isBlank(o[0]+"_s")?100:val(o[0]+"_s"),q=o[0]==="hireWh"?val(o[0]+"_q"):1;g[o[3]]+=q*val(o[0]+"_v")*sh/100});
   MKS.forEach(o=>{const v=val(o[0]+"_v"),p=val(o[0]+"_p");g[o[3]]+=isBlank(o[0]+"_p")?v:v*p/100});
   const opex=g.wh+g.tr+g.mg+g.mk+g.cap,oi=val("cdAmt")+val("cdInt")+val("dip")+val("oiOther");
-  const D=daysIn(mon()),amt=siAmount(cur().id,mon());const base=amt==null?null:amt*($("#siVat").checked?1.1:1);let autoInfo={amt,base,D};
+  const D=daysIn(mon()),amt=siAmount(cur().id,mon());const base=amt==null?null:($("#siVat").checked?(sibuyVat(cur().id,mon())??amt*1.1):amt);let autoInfo={amt,base,D};
   const ac=$("#autoCur").checked,ar=$("#autoCred").checked;$("#curAcc").readOnly=ac;$("#credit").readOnly=ar;
   if(ac&&val("wDays")>0&&base!=null)set("curAcc",Math.round(base/val("wDays")*val("bufDays")/1e3)*1e3);
   if(ar)set("credit",Math.round(rev/D*val("credDays")/1e3)*1e3);
@@ -363,8 +364,9 @@ function render(r){
 // ---- Collect price tab
 S.buyVat=LS.get("buyVat",true);
 const vatOf=sku=>/^H0\d/.test(sku)?0.08:0.10; // Heineken 0.0 (không cồn) 8%, bia 10%
-function buyPrice(sku){const t=typed(sku,"BUY");if(t)return {v:t,src:"input"};const a=S.si;
-  if(a&&a.month===mon()&&a.sku&&a.sku[cur().id]&&a.sku[cur().id][sku])return {v:Math.round(a.sku[cur().id][sku]*(S.buyVat?1+vatOf(sku):1)),src:"SI"};return null}
+function buyPrice(sku){const t=typed(sku,"BUY");if(t)return {v:t,src:"input"};const p=siBuyPrice(cur().id,mon(),sku);
+  if(p)return {v:Math.round(p*(S.buyVat?1+vatOf(sku):1)),src:"SI"};return null}
+function siBuyPrice(dis,m,sku){const g=S.sibuy&&S.sibuy.data[dis]&&S.sibuy.data[dis][m];return g&&g[sku]||null}
 // Số đầy đủ, 3 số cuối hiển thị nhỏ
 const fT=v=>{if(v==null||!isFinite(v))return "–";if(Math.round(v)===0)return "0";const neg=v<0,d=String(Math.round(Math.abs(v))),last=d.slice(-3).padStart(3,"0"),head=d.length>3?d.slice(0,-3).replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";return `${neg?"-":""}${head}${head?".":""}<span class="l3">${last}</span>`};
 function renderPriceKpi(buyT,rv){const el=$("#priceKpi");if(!el)return;const c=calc(),closed=!isOpen(),pr=cur().months[mon()]||{};
@@ -373,18 +375,22 @@ function renderPriceKpi(buyT,rv){const el=$("#priceKpi");if(!el)return;const c=c
   const tile=(k,v,s)=>`<div><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
   const mk=c.g&&c.g.mk||0;el.innerHTML=tile("Tổng giá nhập",fT(buy),closed?"COGS theo P&L Detail":"Sản lượng SO × giá nhập")+tile("Tổng doanh thu",fT(tr),closed?"Doanh thu theo P&L Detail":"Sản lượng × giá bán theo kênh")+tile("Đầu tư thị trường",fT(mk),"Market Invest")+tile("COGS",fT(tr-buy-mk),"Doanh thu − giá nhập − đầu tư thị trường")}
 function renderPrice(){
-  const n=cur(),so=soFor(n.id,mon()),list=soSkus(so);
+  const n=cur(),mo=n.months[mon()],so=soFor(n.id,mon()),list=soSkus(so);
+  // Tháng đã chốt có EDE: Sdis/OFF/ON lấy theo EDE đã cân đối với doanh thu PnL; số nhập tay vẫn ưu tiên
+  const EX=mo&&!mo.open&&edeOk()?Object.fromEntries(edeRev().rows.map(r=>[r.sku,r])):{};
+  const pv=(sku,c)=>{const e=EX[sku];if(e){const x=c==="SDIS"?e.ws:c==="OFF"?e.off:e.on;return x?{v:x,src:"ede"}:null}const t=typed(sku,c);return t?{v:t,src:"input"}:null}; // tháng đã chốt EDE: khoá, không lấy số nhập tay
+  const pvv=(sku,c)=>{const p=pv(sku,c);return p?p.v:null};
   let tot={SDIS:0,OFF:0,ON:0},rv={SDIS:0,OFF:0,ON:0},buyT=0;
   $("#skuCount").textContent=so?`${list.length} SKU có sản lượng SO trong ${mLbl(mon())}`:"";
   let below=0;
-  const rows=list.map(sku=>{const r=so&&so[sku]||{SDIS:0,OFF:0,ON:0,NA:0},ref=refPrice(n.id,mon(),sku),bp=buyPrice(sku);CH.forEach(c=>{tot[c]+=r[c];const p=typed(sku,c);if(p&&r[c])rv[c]+=r[c]*p});buyT+=(bp?bp.v:0)*CH.reduce((x,c)=>x+(r[c]||0),0);
-    const ph=c=>ref&&ref[c]?fmt(ref[c]):"";const lo=c=>bp&&typed(sku,c)&&typed(sku,c)<bp.v,hi=c=>bp&&typed(sku,c)&&typed(sku,c)>bp.v*1.1,wl=c=>c!=="SDIS"&&typed(sku,c)&&typed(sku,"SDIS")&&typed(sku,c)<typed(sku,"SDIS");
+  const rows=list.map(sku=>{const r=so&&so[sku]||{SDIS:0,OFF:0,ON:0,NA:0},ref=refPrice(n.id,mon(),sku),bp=buyPrice(sku);CH.forEach(c=>{tot[c]+=r[c];const v=pvv(sku,c);if(v&&r[c])rv[c]+=r[c]*v});buyT+=(bp?bp.v:0)*CH.reduce((x,c)=>x+(r[c]||0),0);
+    const ph=c=>ref&&ref[c]?fmt(ref[c]):"";const lo=c=>bp&&pvv(sku,c)&&pvv(sku,c)<bp.v,hi=c=>bp&&pvv(sku,c)&&pvv(sku,c)>bp.v*1.1,wl=c=>c!=="SDIS"&&pvv(sku,c)&&pvv(sku,"SDIS")&&pvv(sku,c)<pvv(sku,"SDIS");
     const red=c=>lo(c)||hi(c),anyLo=CH.some(lo),anyRed=CH.some(red);if(anyLo)below++;
-    const pcls=c=>red(c)?"lowp":wl(c)?"warnp":"",ptip=c=>lo(c)?`Thấp hơn giá nhập ${fmt(bp.v)} đ`:hi(c)?`Cao hơn giá nhập 10% (${fmt(bp.v)} đ)`:wl(c)?`Thấp hơn giá Sdis ${fmt(typed(sku,"SDIS"))} đ`:"";
+    const pcls=c=>red(c)?"lowp":wl(c)?"warnp":"",ptip=c=>lo(c)?`Thấp hơn giá nhập ${fmt(bp.v)} đ`:hi(c)?`Cao hơn giá nhập 10% (${fmt(bp.v)} đ)`:wl(c)?`Thấp hơn giá Sdis ${fmt(pvv(sku,"SDIS"))} đ`:"";
     return `<tr${anyRed||CH.some(wl)?' class="hotrow"':""}><td class="l"><b>${sku}${ON_FORM.has(sku)?"":' <span class="chip">ngoài form GIS</span>'}</b><small>${esc(SKU_NAME[sku]||"")}</small></td>
       ${CH.map(c=>`<td>${r[c]?fmt(r[c]):'<span class="muted">–</span>'}</td>`).join("")}
-      <td><input class="v buy" inputmode="decimal" id="p_${sku}_BUY" data-sku="${sku}" data-ch="BUY" placeholder="nhập" value="${bp?fmt(bp.v):""}" title="${bp&&bp.src==="SI"?`Từ file SI by Amount${S.buyVat?`, cộng VAT ${vatOf(sku)*100}%`:""}`:"Nhập tay"}"></td>
-      ${CH.map(c=>`<td><input class="v ${pcls(c)}" inputmode="decimal" id="p_${sku}_${c}" data-sku="${sku}" data-ch="${c}" placeholder="${ph(c)}" value="${typed(sku,c)?fmt(typed(sku,c)):""}"${ptip(c)?` title="${ptip(c)}"`:""}></td>`).join("")}
+      <td><input class="v buy" inputmode="decimal" id="p_${sku}_BUY" data-sku="${sku}" data-ch="BUY" placeholder="nhập" value="${bp?fmt(bp.v):""}" title="${bp&&bp.src==="SI"?`Từ file SaleIn Amount${S.buyVat?`, cộng VAT ${vatOf(sku)*100}%`:""}`:"Nhập tay"}"></td>
+      ${CH.map(c=>{const p=pv(sku,c),ed=p&&p.src==="ede";return `<td><input class="v ${pcls(c)}${ed?" ede":""}"${ed?" readonly":""} inputmode="decimal" id="p_${sku}_${c}" data-sku="${sku}" data-ch="${c}" placeholder="${ph(c)}" value="${p?fmt(p.v):""}"${ptip(c)?` title="${ptip(c)}"`:ed?' title="Khoá: giá EDE đã chốt theo doanh thu PnL"':""}></td>`}).join("")}
 </tr>`}).join("");
   $("#priceT").innerHTML=`<thead><tr class="grp"><th class="l"></th><th colspan="3">Sản lượng SO (thùng)</th><th>Giá nhập</th><th colspan="3">Giá bán / thùng</th></tr>
     <tr><th class="l">SKU</th>${CH.map(c=>`<th><span class="chip ${c}">${c}</span></th>`).join("")}<th>${S.buyVat?"Gồm VAT":"Chưa VAT"}</th><th>Giá Sdis</th><th>Giá OFF</th><th>Giá ON</th></tr></thead>
@@ -392,6 +398,7 @@ function renderPrice(){
     <tfoot><tr><td class="l">Tổng sản lượng</td>${CH.map(c=>`<td>${fmt(tot[c])}</td>`).join("")}<td colspan="4"></td></tr><tr class="revrow"><td class="l">Doanh thu theo kênh (đ)</td><td colspan="4"></td>${CH.map(c=>`<td>${fmt(rv[c])}</td>`).join("")}</tr></tfoot>`;
   renderPriceKpi(buyT,rv);
   $("#skuCount").innerHTML=so?`${list.length} SKU có sản lượng SO trong ${mLbl(mon())}${below?` · <b style="color:var(--red)">${below} SKU có giá bán thấp hơn giá nhập</b>`:""}`:"";
+  if(Object.keys(EX).length)$("#skuCount").innerHTML+=" · giá OFF/ON/Sdis khoá theo EDE đã chốt (màu xanh)";
 }
 $("#priceT").addEventListener("change",e=>{const el=e.target;if(!el.dataset.sku)return;const k=pkey();S.prices[k]=S.prices[k]||{};S.prices[k][el.dataset.sku]=S.prices[k][el.dataset.sku]||{};
   const v=parse(el.value);if(v)S.prices[k][el.dataset.sku][el.dataset.ch]=v;else delete S.prices[k][el.dataset.sku][el.dataset.ch];LS.set("prices",S.prices);renderPrice();refreshDerived()});
@@ -516,9 +523,10 @@ $("#chanT").addEventListener("click",e=>{const h=e.target.closest&&e.target.clos
 $("#addType").onclick=()=>{const t=$("#newType").value.trim();if(!t)return;S.chan[t]=$("#newCh").value;$("#newType").value="";LS.set("chan",S.chan);refreshAll()};
 $("#resetChan").onclick=()=>{S.chan={...DEFAULT_CHAN};LS.set("chan",S.chan);refreshAll()};
 
-function siAmount(dis,m){const a=S.si;return a&&a.month===m&&a.data[dis]!=null?a.data[dis]:null}
+function sibuyVat(dis,m){const b=S.sibuy;return b&&b.amtVat&&b.amtVat[dis]&&b.amtVat[dis][m]!=null?b.amtVat[dis][m]:null}
+function siAmount(dis,m){const b=S.sibuy;return b&&b.amt&&b.amt[dis]&&b.amt[dis][m]!=null?b.amt[dis][m]:null}
 function renderAutoHint(a,rev){const n=cur();
-  $("#autoHint").innerHTML=`Giá trị mua hàng (SI) tháng ${mLbl(mon())}: ${a.amt!=null?`<b>${fmt(a.base/1e9,2)} tỷ</b>${$("#siVat").checked?" (đã cộng VAT 10%)":" (chưa VAT)"} từ file ${esc(S.si.file)} → bình quân ${fmt(a.base/val("wDays")/1e6,0)} tr/ngày`:`<b>chưa có</b> trong file SI by Amount, Current account giữ số đang nhập`}.<br>
+  $("#autoHint").innerHTML=`Giá trị mua hàng (SaleIn Amount) tháng ${mLbl(mon())}: ${a.amt!=null?`<b>${fmt(a.base/1e9,2)} tỷ</b>${$("#siVat").checked?" (đã cộng VAT 10%)":" (chưa VAT)"} từ file ${esc(S.sibuy.file)} → bình quân ${fmt(a.base/val("wDays")/1e6,0)} tr/ngày`:`<b>chưa có</b> trong file SaleIn Amount (cần nạp đúng tháng này), Current account giữ số đang nhập`}.<br>
   Ngày công nợ của ${n.code} các tháng gần nhất: ${n.credHist.map(([k,v])=>`${mLbl(k)} ${fmt(v,2)}`).join(" · ")} ngày. Bình quân nhóm ${fmt(GRP_CRED,2)} ngày.`}
 // ---- uploads
 let xlsxP=null;
@@ -570,19 +578,6 @@ $("#fileGis").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     S.gis=og?{file:joinFiles(og.file,f.name),prices:mergeDM(og.prices,prices),fuel:mergeDM(og.fuel,fuelG),costs:mergeDM(og.costs,costs)}:{file:f.name,prices,fuel:fuelG,costs};
     S.gis.ts=Date.now();LS.set("gis",S.gis);status(st,"ok",`${og?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng giá của ${Object.keys(prices).length} NPP, ${fmt(nf)} dòng Petro fee (số lít × giá), ${fmt(nc)} dòng chi phí của ${Object.keys(costs).length} NPP.`);refreshAll();
   }catch(err){status(st,"bad",esc(err.message))}});
-$("#fileAmt").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#amtStatus");status(st,"","Đang đọc file…");
-  try{const rows=await readRows(f),h=rows.findIndex(r=>r&&r.map(String).some(x=>/^(Distributor_ID|Seller_ID)$/.test(x)));if(h<0)throw new Error("Không thấy cột Distributor_ID");
-    const H=rows[h].map(x=>String(x??"")),iS=H.findIndex(x=>/^(Distributor_ID|Seller_ID)$/.test(x));
-    let iA=H.indexOf("Sales_Amount");if(iA<0)iA=H.findIndex(x=>/amount|thành tiền|doanh số/i.test(x));if(iA<0)throw new Error("Không thấy cột Sales_Amount");
-    const iD=["Date_ID","InvoiceDate","OrderDate","FullDelivDateTime"].map(k=>H.indexOf(k)).find(i=>i>=0);
-    const data={},mc={},sv={};let n=0;const iK=H.indexOf("ShortCode"),iV=H.indexOf("Sales_Volume");
-    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iS]==="")continue;const s=String(r[iS]);data[s]=(data[s]||0)+parseNum(r[iA]);n++;
-      if(iK>=0&&iV>=0&&r[iK]){const x=((sv[s]=sv[s]||{})[r[iK]]=sv[s][r[iK]]||[0,0]);x[0]+=parseNum(r[iV]);x[1]+=parseNum(r[iA])}
-      if(iD!=null&&r[iD]!=null){const v=String(r[iD]);const m=/^\d{8}$/.test(v)?v.slice(0,4)+"-"+v.slice(4,6):ym(toDate(r[iD]));if(m)mc[m]=(mc[m]||0)+1}}
-    const month=Object.entries(mc).sort((a,b)=>b[1]-a[1])[0]?.[0]||mon();
-    const sku={};for(const s in sv)for(const k in sv[s])if(sv[s][k][0]>0)(sku[s]=sku[s]||{})[k]=Math.round(sv[s][k][1]/sv[s][k][0]);
-    S.si={month,file:f.name,col:H[iA],data,sku};LS.set("si",S.si);status(st,"ok",`Đã nạp ${fmt(n)} dòng, cột ${esc(H[iA])}, tháng ${mLbl(month)}.`);refreshAll();
-  }catch(err){status(st,"bad",esc(err.message))}});
 $("#fileTms").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#tmsStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=findHdr(rows,["TenantName","PlanNumber"]);if(h<0)throw new Error("Không thấy cột TenantName, PlanNumber");
     const H=rows[h],ix=k=>H.indexOf(k),iT=ix("TenantName"),iP=ix("PlanNumber"),iU=ix("username"),iQ=ix("Assigned_Quantity"),iS=ix("Status"),iD=ix("Date")>=0?ix("Date"):ix("DeliverDate"),iK=ix("TMS_Planned_Distance"),iC=ix("TruckCategory"),iDr=ix("DriverName");
@@ -597,7 +592,6 @@ $("#fileTms").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     LS.set("tmsSum",S.tmsSum);status(st,"ok",`Đã nạp ${fmt(n)} dòng TMS các tháng ${ms.map(mLbl).join(", ")}.`);refreshAll();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#tmsReset").onclick=()=>{S.tmsSum={};LS.set("tmsSum",{});refreshAll()};
-$("#amtReset").onclick=()=>{S.si=SI_DEFAULT;LS.set("si",null);refreshAll()};
 $("#soReset").onclick=()=>{S.so=SO_DEFAULT;LS.set("so",null);fillMonths(S.so.month);loadNpp()};
 $("#gisReset").onclick=()=>{S.gis=BUN.gis||{file:null,prices:{}};LS.set("gis",null);refreshAll();loadNpp()};
 // SaleOut by Segment: cộng UOM theo Seller_ID × Calendar_Month × ShortCode × Outlet_Segment
@@ -654,15 +648,21 @@ $("#pnlReset").onclick=()=>{LS.set("pnl",null);location.reload()};
 $("#fileSi").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#siStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=findHdr(rows,["Distributor_ID","Date_ID","ShortCode","Sales_Volume","Sales_Amount"]);if(h<0)throw new Error("Không thấy các cột Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Amount");
     const H=rows[h],ix=k=>H.indexOf(k),iD=ix("Distributor_ID"),iT=ix("Date_ID"),iK=ix("ShortCode"),iV=ix("Sales_Volume"),iA=ix("Sales_Amount"),iP=ix("Sales_Unit_Price");
-    const acc={},ms=new Set();let n=0;
-    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iD]==null||r[iK]==null)continue;const dt=String(r[iT]).replace(/\D/g,"");if(dt.length<6)continue;
-      const v=parseNum(r[iV]),a=parseNum(r[iA]),up=iP>=0?parseNum(r[iP]):(v?a/v:0);if(!v||!(up>0))continue;
+    const acc={},tot={},tv={},ms=new Set();let n=0;
+    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iD]==null||r[iD]==="")continue;const dt=String(r[iT]).replace(/\D/g,"");if(dt.length<6)continue;
+      const v=parseNum(r[iV]),a=parseNum(r[iA]),up=iP>=0?parseNum(r[iP]):(v?a/v:0),dis=String(r[iD]).trim(),m=dt.slice(0,4)+"-"+dt.slice(4,6);
+      ms.add(m);n++;
+      // Tổng Sales_Amount theo NPP × tháng (mọi dòng, kể cả hàng tặng) để tính Current account
+      (tot[dis]=tot[dis]||{})[m]=(tot[dis][m]||0)+a;
+      // Có VAT theo SKU: H025 (Heineken 0.0) 8%, còn lại 10%
+      (tv[dis]=tv[dis]||{})[m]=(tv[dis][m]||0)+a*(String(r[iK]||"").trim()==="H025"?1.08:1.1);
+      if(r[iK]==null||!v||!(up>0))continue;
       // Giá mua hiệu lực cuối tháng (ngày mua gần nhất): tháng tăng giá giữa tháng thì giá bán cả tháng theo giá mới
-      const m=dt.slice(0,4)+"-"+dt.slice(4,6),k=String(r[iD]).trim()+"|"+m+"|"+String(r[iK]).trim(),day=+dt.slice(0,8),x=acc[k]=acc[k]||{d:0,a:0,v:0};
-      if(day>x.d){x.d=day;x.a=0;x.v=0}if(day===x.d){x.a+=a;x.v+=v}ms.add(m);n++}
+      const k=dis+"|"+m+"|"+String(r[iK]).trim(),day=+dt.slice(0,8),x=acc[k]=acc[k]||{d:0,a:0,v:0};
+      if(day>x.d){x.d=day;x.a=0;x.v=0}if(day===x.d){x.a+=a;x.v+=v}}
     if(!n)throw new Error("File không có dòng mua hàng nào");
     const data={};for(const k in acc){const [d,m,sku]=k.split("|");((data[d]=data[d]||{})[m]=data[d][m]||{})[sku]=Math.round(acc[k].a/acc[k].v)}
-    const ob=S.sibuy;S.sibuy=ob?{file:joinFiles(ob.file,f.name),months:[...new Set([...ob.months,...ms])].sort(),data:mergeDM(ob.data,data)}:{file:f.name,months:[...ms].sort(),data};S.sibuy.ts=Date.now();LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
+    const ob=S.sibuy;S.sibuy=ob?{file:joinFiles(ob.file,f.name),months:[...new Set([...ob.months,...ms])].sort(),data:mergeDM(ob.data,data),amt:mergeDM(ob.amt,tot),amtVat:mergeDM(ob.amtVat,tv)}:{file:f.name,months:[...ms].sort(),data,amt:tot,amtVat:tv};S.sibuy.ts=Date.now();LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#siReset").onclick=()=>{S.sibuy=BUN.sibuy||null;LS.set("sibuy",null);refreshAll();loadNpp()};
 $("#segReset").onclick=()=>{S.soseg=BUN.soseg||null;LS.set("soseg",null);refreshAll();loadNpp()};
@@ -690,7 +690,7 @@ function renderSrc(){
   status($("#packStatus"),BUN.at?"ok":"",BUN.at?`Bản build đang dùng gói dữ liệu đóng gói lúc <b>${esc(BUN.at)}</b>.`:"Bản build chưa có gói dữ liệu EDE / SaleOut.");
   const so=S.so;status($("#soStatus"),so?"ok":"",so?`Đang dùng: <b>${esc(so.file)}</b> · tháng ${mLbl(so.month)} · ${Object.keys(so.data).length} NPP`:"Chưa có file SO");
   const tm=Object.keys(Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{})).sort();status($("#tmsStatus"),"ok",`Đã có số chuyến các tháng: ${tm.map(mLbl).join(", ")} (T6–T9 nạp sẵn từ file bạn gửi).`);
-  const A=S.si;status($("#amtStatus"),A?"ok":"",A?`Đang dùng: <b>${esc(A.file)}</b> · cột ${esc(A.col)} · tháng ${mLbl(A.month)} · ${Object.keys(A.data).length} NPP`:"Chưa nạp file SI by Amount.");
+
   const g=S.gis,nd=Object.keys(g.prices||{}).length,nf=Object.keys(g.fuel||{}).length;status($("#gisStatus"),nd||nf?"ok":"bad",nd||nf?`Đang dùng: <b>${esc(g.file)}</b>${isBuild("gis")?" (bản build)":" (nạp trên máy này)"} · giá bán của ${nd} NPP · chi phí EDE của ${Object.keys(g.costs||{}).length} NPP`:"Chưa nạp file GIS có dòng giá. Hãy nạp file .xlsx gốc (giá dạng text vẫn đọc được).")}
 
 // ---- Export Excel
@@ -944,7 +944,7 @@ function dataSrcLine(){
     `SO: ${so.file?esc(so.file)+" · "+mLbl(so.month):"mặc định"}`,
     `TMS: ${ms.length?ms.map(mLbl).join(", "):"chưa nạp"}`,
     `GIS: ${gis.file?esc(gis.file):"chưa nạp"}`,
-    `SI: ${S.si&&S.si.file?esc(S.si.file):"mặc định"}`,
+    `SaleIn: ${S.sibuy&&S.sibuy.file?esc(S.sibuy.file):"chưa nạp"}`,
     `Kênh: ${ch} loại`];
   return `<div class="stamp">Dữ liệu nạp tay trên máy này (không đồng bộ) · ${parts.join(" · ")}</div>`}
 function checklist(){if(!isOpen())return "";const so=soRevenue(),miss=opsMissing(),items=[];
