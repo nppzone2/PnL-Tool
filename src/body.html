@@ -209,8 +209,8 @@ details.autosec[hidden]{display:none!important}
           <div id="soBox"><div id="soSummary"></div></div>
           <div id="edeBox" hidden>
             <div id="edeSum"></div>
-            <div class="row2"><label for="onoffP">Giá On-Off bình quân dùng cho P&amp;L<small>Theo cấu trúc OFF/ON NPP nhập, khớp PnL Detail</small></label><input class="v" id="onoffP" inputmode="decimal"></div>
-            <details class="autosec"><summary>Giá theo SKU: Sdis (Val01) · On-Off (Val02) · OFF/ON NPP nhập · On-Off dùng P&amp;L</summary><div class="scroll" id="edeSku"></div></details>
+            <div class="row2"><label for="onoffP">Giá On-Off bình quân dùng cho P&amp;L<small>Bình quân OFF/ON theo giá mua + biên T9, khớp PnL Detail</small></label><input class="v" id="onoffP" inputmode="decimal"></div>
+            <details class="autosec"><summary>Giá theo SKU: Sdis (Val01) · giá mua · biên T9 · OFF/ON dùng P&amp;L</summary><div class="scroll" id="edeSku"></div></details>
           </div>
           <div id="totBox">
             <div class="row2"><label for="totVol">Tổng sản lượng (thùng)<small>1. Total_Volume <span class="src">PnL Detail</span></small></label><input class="v" id="totVol" inputmode="decimal"></div>
@@ -401,6 +401,12 @@ details.autosec[hidden]{display:none!important}
         <div class="toolbar"><button type="button" id="pnlReset">Dùng lại số trong bản build</button></div>
       </div>
       <div class="card">
+        <h2>File SaleIn Amount</h2>
+        <p class="lead">Export nhiều tháng: Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Unit_Price, Sales_Amount. Giá mua theo SKU từng tháng (cộng VAT 10%, H025 8%) dùng dựng khung giá OFF/ON cho thẻ P&amp;L.</p>
+        <div class="drop" style="margin-top:12px"><input type="file" id="fileSi" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="siStatus"></div></div>
+        <div class="toolbar"><button type="button" id="siReset">Dùng lại số trong bản build</button></div>
+      </div>
+      <div class="card">
         <h2>File SaleOut by Segment</h2>
         <p class="lead">Export nhiều tháng: Seller_ID, Outlet_Segment, Calendar_Month, ShortCode, UOM (case). Dùng tách sản lượng SDIS / On-Off cho mục 1 thẻ P&amp;L, thay cho file SO theo ngày giao ở các tháng có trong file.</p>
         <div class="drop" style="margin-top:12px"><input type="file" id="fileSeg" accept=".xlsx,.xls,.csv,.txt"><div class="status" id="segStatus"></div></div>
@@ -408,7 +414,7 @@ details.autosec[hidden]{display:none!important}
       </div>
       <div class="card">
         <h2>Đóng gói dữ liệu cho NPP</h2>
-        <p class="lead">Sau khi nạp file PnL Detail, EDE và SaleOut, bấm nút để tải file <b>inbox.sealed</b> (đã mã hoá). Vào GitHub repo, mở thư mục <b>src</b> → Add file → Upload files, chọn file này rồi Commit. GitHub Actions tự giải mã và cập nhật trang cho cả NPP.</p>
+        <p class="lead">Sau khi nạp file PnL Detail, EDE, SaleOut và SaleIn, bấm nút để tải file <b>inbox.sealed</b> (đã mã hoá). Vào GitHub repo, mở thư mục <b>src</b> → Add file → Upload files, chọn file này rồi Commit. GitHub Actions tự giải mã và cập nhật trang cho cả NPP.</p>
         <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="packBtn">Đóng gói &amp; tải inbox.sealed</button></div>
         <div class="status" id="packStatus"></div>
       </div>
@@ -429,7 +435,7 @@ details.autosec[hidden]{display:none!important}
       <h2>Quy tắc tính</h2>
       <ul class="rules">
         <li>Tháng P&amp;L của một lần nhập GIS = tháng của InputDate trừ 1 (ví dụ nhập 16/09 là số của tháng 8). Đã đối chiếu khớp với PnL Detail.</li>
-        <li>Thẻ P&amp;L tháng đã chốt có EDE: sản lượng tổng theo PnL Detail; SDIS (Outlet_Segment Sub Distributor) × giá Val01; On-Off = phần còn lại; giá On-Off từng SKU theo cấu trúc giá OFF/ON NPP nhập trên web tháng gần nhất (T9), cộng/trừ đều để khớp doanh thu PnL Detail, bình quân theo SL OFF/ON, làm tròn 1.000 đ, phần lệch dồn vào SKU tỷ trọng cao nhất (làm tròn 500 đ). Chi phí = VND × % share, thuê kho = m² × đơn giá × % share. Market investment, Capital cost = Val01 × Val02%. Current account, Credit for Outlets = Val01. Remaining value hiển thị Val01, tính P&amp;L = Val01 × (% share khấu hao xe tải + xe nâng + thiết bị VP) ÷ 3. CD, DIP, Other income, Inventory, CD hold, Cash deposit lấy PnL Detail.</li>
+        <li>Thẻ P&amp;L tháng đã chốt có EDE: sản lượng tổng theo PnL Detail; SDIS (Outlet_Segment Sub Distributor) × giá Val01; On-Off = phần còn lại; giá OFF/ON từng SKU = giá mua tháng (SaleIn, có VAT) + biên T9 (giá NPP nhập trên web − giá mua T9), cộng/trừ đều để khớp doanh thu PnL Detail; OFF làm tròn 500 đ, ON làm tròn 1.000 đ; phần lệch còn lại cộng/trừ vào giá ON. Chi phí = VND × % share, thuê kho = m² × đơn giá × % share. Market investment, Capital cost = Val01 × Val02%. Current account, Credit for Outlets = Val01. Remaining value hiển thị Val01, tính P&amp;L = Val01 × (% share khấu hao xe tải + xe nâng + thiết bị VP) ÷ 3. CD, DIP, Other income, Inventory, CD hold, Cash deposit lấy PnL Detail.</li>
         <li>Giá tham chiếu của tháng M lấy lần nhập cuối cùng của tháng M-1. Nếu không có thì lùi về M-2, tối đa M-3.</li>
         <li>Doanh thu = Σ SKU (SL SDIS × giá Sdis + SL OFF × giá OFF + SL ON × giá ON). SKU chưa có giá và chưa có tham chiếu dùng giá bán bình quân của NPP ở tháng gần nhất đã chốt.</li>
         <li>COGS = sản lượng SO × giá mua bình quân / thùng của tháng trong PnL Detail. Chi phí vận hành và vốn của tháng chưa chốt lấy theo tháng liền trước.</li>

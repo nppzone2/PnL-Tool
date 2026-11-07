@@ -33,7 +33,7 @@ if(PNL_SRC)for(const id in PNL_SRC.data){const x=PNL_SRC.data[id];let n=NPP.find
   // Tháng mở (chưa chốt) chỉ giữ một tháng ngay sau tháng chốt cuối cùng
   const ks=Object.keys(n.months).filter(k=>!n.months[k].open).sort(),last=ks[ks.length-1];
   if(last)for(const k of Object.keys(n.months))if(n.months[k].open&&k<=last)delete n.months[k]}
-const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:(g=>g&&g.file?g:(BUN.gis||{file:null,prices:{}}))(LS.get("gis",null)),soseg:(g=>g&&g.file?g:(BUN.soseg||null))(LS.get("soseg",null)),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
+const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:(g=>g&&g.file?g:(BUN.gis||{file:null,prices:{}}))(LS.get("gis",null)),soseg:(g=>g&&g.file?g:(BUN.soseg||null))(LS.get("soseg",null)),sibuy:(g=>g&&g.file?g:(BUN.sibuy||null))(LS.get("sibuy",null)),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
 
 // ---- benchmarks (closed months only)
 const gsum=(m,g)=>GRPKEYS[g].reduce((a,k)=>a+(m[k]||0),0);
@@ -173,43 +173,53 @@ function loadNpp(){
 }
 const modeOf=()=>$("#modeEde").checked&&!$("#modeEde").disabled?"ede":$("#modeSo").checked&&!$("#modeSo").disabled?"so":"tot";
 function toggleMode(){const md=modeOf();$("#soBox").hidden=md!=="so";$("#edeBox").hidden=md!=="ede";$("#totBox").hidden=md!=="tot";$("#volTag").textContent=md==="so"?"SO × Giá bán":md==="ede"?"SO kênh × giá EDE":"PnL Detail";renderEde()}
-// ---- Doanh thu theo kênh (tháng đã chốt có EDE): SDIS × Val01; On-Off theo cấu trúc giá OFF/ON NPP nhập trên web (tháng gần nhất, T9),
-// cộng/trừ cùng một mức cho mọi SKU để doanh thu khớp PnL Detail, bình quân theo SL OFF/ON của tháng, làm tròn 1.000 đ;
-// phần lệch do làm tròn dồn vào SKU On-Off tỷ trọng cao nhất (làm tròn 500 đ). Tổng sản lượng giữ theo PnL Detail.
+// ---- Doanh thu theo kênh (tháng đã chốt có EDE). Tổng sản lượng giữ theo PnL Detail, phần chênh so với SaleOut by Segment tính vào On-Off.
+// SDIS × Val01 (EDE). OFF/ON = giá mua tháng (SaleIn, có VAT) + biên T9 của SKU ở kênh đó (giá NPP nhập trên web − giá mua T9),
+// cộng/trừ đều một mức cho OFF và ON để khớp doanh thu PnL Detail; OFF làm tròn 500 đ, ON làm tròn 1.000 đ;
+// phần lệch còn lại cộng/trừ vào giá kênh ON (SKU sản lượng ON lớn trước, làm tròn 1.000 đ).
 const edePr=(dis,m)=>((S.gis.prices||{})[dis]||{})[m]||null;
 const r1k=v=>Math.round(v/1000)*1000,r500=v=>Math.round(v/500)*500;
 function edeOk(){const n=cur(),mm=mon(),m=n.months[mm];if(!m||m.open||!m.vol||!segHas(mm)||!edePr(n.id,mm))return false;const so=soFor(n.id,mm);return !!(so&&Object.keys(so).length)}
-// Giá NPP nhập trên web (tab Giá bán) của tháng gần nhất có số, dùng làm mẫu cấu trúc OFF/ON
-// Không có giá nhập trên web thì lấy giá On-Off (Val02) của lần nhập EDE mới nhất (P&L T9 khi file EDE có lần nhập tháng 10)
+// Giá NPP nhập trên web (tab Giá bán) của tháng gần nhất có số; chưa có thì lấy giá On-Off (Val02) của lần nhập EDE mới nhất
 function tplPrices(dis){const ks=Object.keys(S.prices||{}).filter(k=>k.startsWith(dis+"|")&&Object.values(S.prices[k]||{}).some(p=>p&&(p.OFF||p.ON))).sort();
   const k=ks.pop();if(k)return {m:k.split("|")[1],p:S.prices[k],src:"web"};
   const g=(S.gis.prices||{})[dis]||{},em=Object.keys(g).sort().pop();if(!em)return null;
   const p={};for(const sku in g[em]){const r=g[em][sku];if(r&&r.rt)p[sku]={OFF:r.rt,ON:r.rt}}return {m:em,p,src:"EDE"}}
+// Giá mua có VAT (10%, H025 8%) theo SaleIn Amount; tháng không mua SKU đó thì lấy tháng gần nhất trước đó, rồi sau đó
+const buyVat=(dis,m,sku)=>{const g=(S.sibuy&&S.sibuy.data[dis])||{},ms=Object.keys(g).sort(),vat=sku==="H025"?1.08:1.1;
+  const hit=[...ms.filter(x=>x<=m).reverse(),...ms.filter(x=>x>m)].find(x=>g[x][sku]);return hit?g[hit][sku]*vat:null};
 function edeRev(){const n=cur(),mm=mon(),m=n.months[mm],so=soFor(n.id,mm)||{},pr=edePr(n.id,mm)||{},tp=tplPrices(n.id);
   let Vs=0,sRev=0,Vso=0;const rows=[],miss=[];
   for(const sku of skuList(so,false)){const r=so[sku],qs=r.SDIS,qf=r.OFF+r.NA,qn=r.ON,qo=qf+qn;if(!qs&&!qo)continue;const p=pr[sku]||{};let ws=p.ws||null,rt=p.rt||null;
     if(!ws||!rt){miss.push(sku);const ref=refPrice(n.id,mm,sku);ws=ws||(ref&&ref.SDIS)||rt||n.lastSell;rt=rt||(ref&&ref.OFF)||ws||n.lastSell}
-    const t=tp&&tp.p[sku]||{},off=t.OFF||t.ON||rt,on=t.ON||t.OFF||rt,b=qo?(off*qf+on*qn)/qo:rt;
-    Vs+=qs;sRev+=qs*ws;Vso+=qo;rows.push({sku,qs,qo,qf,qn,ws,rt,off,on,b,tpl:!!(t.OFF||t.ON)})}
+    const t=tp&&tp.p[sku]||{},tOff=t.OFF||t.ON||null,tOn=t.ON||t.OFF||null,bM=buyVat(n.id,mm,sku),bT=tp?buyVat(n.id,tp.m,sku):null;
+    // có giá mua tháng M và T9: giá = giá mua M + biên T9; thiếu thì lấy thẳng giá mẫu T9, không có mẫu thì Val02
+    const mg=bM&&bT&&tOff,bOff=mg?bM+(tOff-bT):(tOff||rt),bOn=mg?bM+(tOn-bT):(tOn||rt);
+    Vs+=qs;sRev+=qs*ws;Vso+=qo;rows.push({sku,qs,qo,qf,qn,ws,rt,bM,mOff:mg?tOff-bT:null,mOn:mg?tOn-bT:null,bOff,bOn,tpl:!!tOff,mg:!!mg})}
   const V=m.vol,Vo=V-Vs,f=Vso?Vo/Vso:0,T=m.rev-sRev;
-  const sb=rows.reduce((a,r)=>a+r.qo*r.b,0),c0=Vso&&f?(T/f-sb)/Vso:0;
-  let top=null;rows.forEach(r=>{if(r.qo&&(!top||r.qo>top.qo))top=r});
-  const revOf=()=>sRev+f*rows.reduce((a,r)=>a+r.qo*r.p,0);
-  // Với mức cộng/trừ c: SKU thường làm tròn 1.000, SKU tỷ trọng cao nhất nhận phần lệch (làm tròn 500)
-  const apply=c=>{rows.forEach(r=>{r.p=r.qo?r1k(r.b+c):0});if(top&&f){const res=m.rev-revOf();top.p=r500(top.p+res/(f*top.qo))}return Math.abs(m.rev-revOf())};
-  // Dò mức c quanh c0 (±1.000 đ, bước 10 đ) để phần lệch do làm tròn nhỏ nhất
+  const sb=rows.reduce((a,r)=>a+r.qf*r.bOff+r.qn*r.bOn,0),c0=Vso&&f?(T/f-sb)/Vso:0;
+  const onRows=rows.filter(r=>r.qn>0).sort((a,b)=>b.qn-a.qn);
+  const revOf=()=>sRev+f*rows.reduce((a,r)=>a+r.qf*r.off+r.qn*r.on,0);
+  const apply=c=>{rows.forEach(r=>{r.off=r500(r.bOff+c);r.on=r1k(r.bOn+c);r.adj=0});
+    // mỗi lượt mỗi SKU kênh ON cộng/trừ 1.000 đ (tổng tối đa ±3.000 đ), đi từ SKU sản lượng ON lớn xuống, dừng khi phần lệch không còn đủ 1 bước
+    if(f)for(let pass=0;pass<3;pass++){let moved=false;
+      for(const r of onRows){const a=Math.max(-1000,Math.min(1000,r1k((m.rev-revOf())/(f*r.qn))));if(a&&Math.abs(r.adj+a)<=3000){r.on+=a;r.adj+=a;moved=true}}
+      if(!moved)break}
+    return Math.abs(m.rev-revOf())};
+  // Dò mức cộng/trừ quanh c0 (±1.000 đ, bước 10 đ) để phần lệch còn lại nhỏ nhất
   let c=c0;if(f&&rows.length){let best=Infinity;for(let x=-1000;x<=1000;x+=10){const e=apply(c0+x);if(e<best-1||(Math.abs(e-best)<=1&&Math.abs(x)<Math.abs(c-c0))){best=Math.min(best,e);c=c0+x}}}
-  apply(c);if(top)top.top=true;
-  const rev=Vso&&f?revOf():m.rev,Po=Vo>0?(rev-sRev)/Vo:NaN,avgRt=Vso?rows.reduce((a,r)=>a+r.qo*r.rt,0)/Vso:NaN;
-  return {V,Vs,sRev,Vso,Vo,f,c,avgRt,Po,rev,rows,miss,tp,act:m.rev,Vseg:Vs+Vso}}
-function renderEde(){const box=$("#edeSum");if(!box||$("#edeBox").hidden)return;const e=edeRev(),d=e.rev-e.act,ok=Math.abs(d)<1e3;
-  set("onoffP",e.Po);const sAvg=e.Vs?e.sRev/e.Vs:NaN,gap=e.V-e.Vseg;
+  apply(c);
+  const rev=Vso&&f?revOf():m.rev,Po=Vo>0?(rev-sRev)/Vo:NaN,avgRt=Vso?rows.reduce((a,r)=>a+r.qo*r.rt,0)/Vso:NaN,nMg=rows.filter(r=>r.mg).length;
+  return {V,Vs,sRev,Vso,Vo,f,c,avgRt,Po,rev,rows,miss,tp,nMg,act:m.rev,Vseg:Vs+Vso}}
+function renderEde(){const box=$("#edeSum");if(!box||$("#edeBox").hidden)return;const e=edeRev(),d=e.rev-e.act,ok=Math.abs(d)<=Math.max(1e3,Math.abs(e.act)*1e-4);
+  set("onoffP",e.Po);const sAvg=e.Vs?e.sRev/e.Vs:NaN,gap=e.V-e.Vseg,nAdj=e.rows.filter(r=>r.adj).length,tl=e.tp?mLbl(e.tp.m):"";
   box.innerHTML=`<div class="stats"><div class="stat"><div class="k"><span class="chip SDIS">SDIS</span> giá Val01</div><div class="v">${fmt(e.Vs)}</div><small class="muted">${fmt(sAvg)} đ/thùng</small></div>
     <div class="stat"><div class="k">On-Off</div><div class="v">${fmt(e.Vo)}</div><small class="muted">Val02 ${fmt(e.avgRt)} → P&amp;L ${fmt(e.Po)} đ (${e.Po-e.avgRt>0?"+":""}${fmt(e.Po-e.avgRt)})</small></div>
-    <div class="stat"><div class="k">Doanh thu</div><div class="v">${fmt(e.rev/1e6,1)} tr</div><small class="${ok?"muted":"neg"}">${ok?"✓ khớp PnL Detail":"chênh "+(d>0?"+":"")+fmt(d)+" đ do làm tròn"}</small></div></div>
-    <p class="hint">${e.tp?`Cấu trúc giá theo ${e.tp.src==="web"?"giá OFF/ON NPP nhập trên web":"giá On-Off (Val02) EDE"} ${mLbl(e.tp.m)}, ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng cho mọi SKU`:`Chưa có giá NPP nhập trên web, dùng Val02 ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng`}; bình quân theo SL OFF/ON của ${mLbl(mon())}, làm tròn 1.000 đ, phần lệch dồn vào SKU tỷ trọng cao nhất (làm tròn 500 đ).
-    Sản lượng PnL Detail ${fmt(e.V)} thùng · SaleOut by Segment ${fmt(e.Vseg)} thùng${gap?` (chênh ${gap>0?"+":""}${fmt(gap)} thùng, tính vào On-Off)`:""}.${e.miss.length?` SKU chưa có giá EDE, đang dùng giá tham chiếu: ${e.miss.join(", ")}.`:""}</p>`;
-  $("#edeSku").innerHTML=`<table class="dt"><thead><tr><th class="l">SKU</th><th>SL SDIS</th><th>Sdis (Val01)</th><th>SL OFF</th><th>SL ON</th><th>On-Off (Val02)</th><th>OFF${e.tp?" "+mLbl(e.tp.m):""}</th><th>ON${e.tp?" "+mLbl(e.tp.m):""}</th><th>On-Off P&amp;L</th></tr></thead><tbody>${e.rows.map(r=>`<tr><td class="l">${esc(r.sku)}${r.top?' <small class="muted">· tỷ trọng cao nhất</small>':""}</td><td>${fmt(r.qs)}</td><td>${fmt(r.ws)}</td><td>${fmt(r.qf)}</td><td>${fmt(r.qn)}</td><td>${fmt(r.rt)}</td><td class="${r.tpl?"":"muted"}">${fmt(r.off)}</td><td class="${r.tpl?"":"muted"}">${fmt(r.on)}</td><td><b>${r.qo?fmt(r.p):"–"}</b></td></tr>`).join("")}</tbody></table>`}
+    <div class="stat"><div class="k">Biên On-Off so với ${tl||"mẫu"}</div><div class="v">${e.c>0?"+":""}${fmt(e.c)} đ</div><small class="muted">cộng/trừ đều mỗi thùng OFF, ON</small></div>
+    <div class="stat"><div class="k">Doanh thu</div><div class="v">${fmt(e.rev/1e6,1)} tr</div><small class="${ok?"muted":"neg"}">${ok?`✓ khớp PnL Detail${Math.abs(d)>=1e3?` (lệch ${d>0?"+":""}${fmt(d)} đ do làm tròn)`:""}`:"chênh "+(d>0?"+":"")+fmt(d/1e6,2)+" tr do làm tròn"}</small></div></div>
+    <p class="hint">${e.tp?`OFF/ON = giá mua ${mLbl(mon())} (SaleIn, có VAT) + biên ${e.tp.src==="web"?"giá NPP nhập trên web":"giá Val02 EDE"} ${tl} (${e.nMg}/${e.rows.length} SKU có đủ giá mua)`:"Chưa có giá NPP nhập trên web: dùng Val02"}, ${e.c>0?"cộng":"trừ"} đều ${fmt(Math.abs(e.c))} đ/thùng; OFF làm tròn 500 đ, ON làm tròn 1.000 đ${nAdj?`; phần lệch còn lại cộng/trừ vào giá ON của ${nAdj} SKU`:""}.
+    Sản lượng PnL Detail ${fmt(e.V)} thùng · SaleOut by Segment ${fmt(e.Vseg)} thùng${gap?` (chênh ${gap>0?"+":""}${fmt(gap)} thùng, tính vào On-Off)`:""}.${Math.abs(gap)>e.V*0.1?` <b>SaleOut lệch PnL Detail hơn 10%: nên kiểm tra lại file SaleOut tháng này.</b>`:""}${e.miss.length?` SKU chưa có giá EDE, đang dùng giá tham chiếu: ${e.miss.join(", ")}.`:""}${S.sibuy?"":" Chưa nạp file SaleIn Amount nên chưa có giá mua."}</p>`;
+  $("#edeSku").innerHTML=`<table class="dt"><thead><tr><th class="l">SKU</th><th>SL SDIS</th><th>Sdis (Val01)</th><th>SL OFF</th><th>SL ON</th><th>Giá mua ${mLbl(mon())}</th><th>Biên OFF ${tl}</th><th>Biên ON ${tl}</th><th>OFF P&amp;L</th><th>ON P&amp;L</th></tr></thead><tbody>${e.rows.map(r=>`<tr><td class="l">${esc(r.sku)}</td><td>${fmt(r.qs)}</td><td>${fmt(r.ws)}</td><td>${fmt(r.qf)}</td><td>${fmt(r.qn)}</td><td class="${r.bM?"":"muted"}">${r.bM?fmt(r.bM):"–"}</td><td>${r.mOff!=null?fmt(r.mOff):"–"}</td><td>${r.mOn!=null?fmt(r.mOn):"–"}</td><td><b>${r.qf?fmt(r.off):"–"}</b></td><td><b>${r.qn?fmt(r.on):"–"}</b>${r.adj?` <small class="muted">(${r.adj>0?"+":""}${fmt(r.adj)})</small>`:""}</td></tr>`).join("")}</tbody></table>`}
 document.querySelectorAll("input[name=mode]").forEach(r=>r.addEventListener("change",()=>{toggleMode();render(calc())}));
 
 // ---- revenue from SO
@@ -611,12 +621,25 @@ $("#filePnl").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     LS.set("pnl",{file:f.name,data});status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP. Đang tải lại trang…`);setTimeout(()=>location.reload(),900);
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#pnlReset").onclick=()=>{LS.set("pnl",null);location.reload()};
+// SaleIn Amount: giá mua chưa VAT theo Distributor_ID × tháng × ShortCode, bình quân các dòng có đơn giá (bỏ hàng tặng giá 0)
+$("#fileSi").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#siStatus");status(st,"","Đang đọc file…");
+  try{const rows=await readRows(f),h=findHdr(rows,["Distributor_ID","Date_ID","ShortCode","Sales_Volume","Sales_Amount"]);if(h<0)throw new Error("Không thấy các cột Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Amount");
+    const H=rows[h],ix=k=>H.indexOf(k),iD=ix("Distributor_ID"),iT=ix("Date_ID"),iK=ix("ShortCode"),iV=ix("Sales_Volume"),iA=ix("Sales_Amount"),iP=ix("Sales_Unit_Price");
+    const acc={},ms=new Set();let n=0;
+    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iD]==null||r[iK]==null)continue;const dt=String(r[iT]).replace(/\D/g,"");if(dt.length<6)continue;
+      const v=parseNum(r[iV]),a=parseNum(r[iA]),up=iP>=0?parseNum(r[iP]):(v?a/v:0);if(!v||!(up>0))continue;
+      const m=dt.slice(0,4)+"-"+dt.slice(4,6),k=String(r[iD]).trim()+"|"+m+"|"+String(r[iK]).trim(),x=acc[k]=acc[k]||[0,0];x[0]+=a;x[1]+=v;ms.add(m);n++}
+    if(!n)throw new Error("File không có dòng mua hàng nào");
+    const data={};for(const k in acc){const [d,m,sku]=k.split("|");((data[d]=data[d]||{})[m]=data[d][m]||{})[sku]=Math.round(acc[k][0]/acc[k][1])}
+    S.sibuy={file:f.name,months:[...ms].sort(),data};LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
+  }catch(err){status(st,"bad",esc(err.message))}});
+$("#siReset").onclick=()=>{S.sibuy=BUN.sibuy||null;LS.set("sibuy",null);refreshAll();loadNpp()};
 $("#segReset").onclick=()=>{S.soseg=BUN.soseg||null;LS.set("soseg",null);refreshAll();loadNpp()};
 // Mã hoá gói dữ liệu bằng khoá công khai (RSA-OAEP + AES-GCM); chỉ GitHub Actions có khoá bí mật INBOX_KEY để mở
 $("#packBtn").addEventListener("click",async()=>{const st=$("#packStatus");
   try{if(!edeCount())throw new Error("Chưa có dữ liệu EDE: nạp file EDE Input PnL trước.");if(!S.soseg)throw new Error("Chưa có dữ liệu SaleOut by Segment: nạp file trước.");
     if(!PNL_SRC)throw new Error("Chưa có dữ liệu PnL Detail: nạp file PnL Detail trước.");
-    status(st,"","Đang mã hoá…");const at=new Date().toLocaleString("vi-VN"),body=new TextEncoder().encode(JSON.stringify({at,gis:S.gis,soseg:S.soseg,pnl:PNL_SRC}));
+    status(st,"","Đang mã hoá…");const at=new Date().toLocaleString("vi-VN"),body=new TextEncoder().encode(JSON.stringify({at,gis:S.gis,soseg:S.soseg,pnl:PNL_SRC,sibuy:S.sibuy}));
     const ak=await crypto.subtle.generateKey({name:"AES-GCM",length:256},true,["encrypt"]),iv=crypto.getRandomValues(new Uint8Array(12));
     const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},ak,body));
     const pub=await crypto.subtle.importKey("jwk",{...INBOX_PUB,ext:true},{name:"RSA-OAEP",hash:"SHA-256"},false,["encrypt"]);
@@ -627,6 +650,7 @@ $("#packBtn").addEventListener("click",async()=>{const st=$("#packStatus");
   }catch(err){status(st,"bad",esc(err.message))}});
 const edeCount=()=>Object.keys(S.gis.costs||{}).length;
 function renderSrc(){
+  const sb=S.sibuy;status($("#siStatus"),sb?"ok":"bad",sb?`Đang dùng: <b>${esc(sb.file)}</b>${!LS.get("sibuy",null)&&BUN.sibuy?" (bản build)":""} · ${Object.keys(sb.data).length} NPP · ${sb.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleIn Amount.");
   const pn=PNL_SRC;status($("#pnlStatus"),pn?"ok":"",pn?`Đang dùng: <b>${esc(pn.file)}</b>${!LS.get("pnl",null)?" (bản build)":""} · ${Object.keys(pn.data).length} NPP · ${[...new Set(Object.values(pn.data).flatMap(x=>Object.keys(x.months)))].sort().map(mLbl).join(", ")}`:"Đang dùng PnL Detail có sẵn trong bản build (data.enc).");
   const sg=S.soseg;status($("#segStatus"),sg?"ok":"bad",sg?`Đang dùng: <b>${esc(sg.file)}</b>${!LS.get("soseg",null)&&BUN.soseg?" (bản build)":""} · ${Object.keys(sg.data).length} NPP · ${sg.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleOut by Segment.");
   status($("#packStatus"),BUN.at?"ok":"",BUN.at?`Bản build đang dùng gói dữ liệu đóng gói lúc <b>${esc(BUN.at)}</b>.`:"Bản build chưa có gói dữ liệu EDE / SaleOut.");
