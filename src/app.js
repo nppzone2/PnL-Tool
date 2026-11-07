@@ -597,11 +597,21 @@ $("#soReset").onclick=()=>{S.so=SO_DEFAULT;LS.set("so",null);fillMonths(S.so.mon
 $("#gisReset").onclick=()=>{S.gis=BUN.gis||{file:null,prices:{}};LS.set("gis",null);refreshAll();loadNpp()};
 // SaleOut by Segment: cộng UOM theo Seller_ID × Calendar_Month × ShortCode × Outlet_Segment
 $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#segStatus");status(st,"","Đang đọc file…");
-  try{const rows=await readRows(f),h=findHdr(rows,["Seller_ID","Outlet_Segment","Calendar_Month","ShortCode"]);if(h<0)throw new Error("Không thấy các cột Seller_ID, Outlet_Segment, Calendar_Month, ShortCode");
-    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iO=ix("Outlet_Segment"),iM=ix("Calendar_Month"),iK=ix("ShortCode"),iQ=ix("UOM")>=0?ix("UOM"):ix("Quantity"),iT=ix("Sales_Type");if(iQ<0)throw new Error("Không thấy cột UOM / Quantity (sản lượng thùng)");
+  try{const rows=await readRows(f),h=findHdr(rows,["Seller_ID","Outlet_Segment","ShortCode"]);if(h<0)throw new Error("Không thấy các cột Seller_ID, Outlet_Segment, ShortCode");
+    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iO=ix("Outlet_Segment"),iM=ix("Calendar_Month"),iK=ix("ShortCode"),iQ=ix("UOM")>=0?ix("UOM"):ix("Quantity"),iT=ix("Sales_Type"),iF=ix("FullDelivDateTime"),iOD=ix("OrderDate");if(iQ<0)throw new Error("Không thấy cột UOM / Quantity (sản lượng thùng)");
+    if(iF<0&&iM<0)throw new Error("Cần cột Calendar_Month hoặc FullDelivDateTime");
+    // PnL Detail ghi sản lượng theo tháng giao đủ hàng: file chi tiết đơn có FullDelivDateTime thì lấy tháng giao.
+    // Tháng giao đầu tiên của file thiếu đơn đặt từ tháng trước (vd. đơn T12 giao T1) nên bỏ qua, giữ số cũ.
+    // Ngày dạng số (Excel) tính theo UTC; ngày dạng chữ trình duyệt hiểu theo giờ máy nên lấy tháng theo giờ máy
+    const mOf=v=>{if(v instanceof Date||typeof v==="number"||/^\d+(\.\d+)?$/.test(String(v||"").trim()))return ym(toDate(v));const d=toDate(v);return d&&!isNaN(d)?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"):null};
+    let skipM=null;
+    if(iF>=0&&iOD>=0){const cnt={};let tot=0;for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null)continue;const m=mOf(r[iOD]);if(m){cnt[m]=(cnt[m]||0)+1;tot++}}
+      // tháng đặt hàng đầu tiên có số đáng kể (bỏ vài đơn lẻ đặt sớm hơn)
+      const ks=Object.keys(cnt).sort(),avg=tot/Math.max(1,ks.length);skipM=ks.find(k=>cnt[k]>=avg*0.05)||null}
     const data={},ms=new Set();let n=0,cp=0;
-    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iK]==null)continue;const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;
-      const m=mm.slice(0,4)+"-"+mm.slice(4,6),dis=String(r[iS]).trim(),sku=String(r[iK]).trim(),seg=String(r[iO]||"(trống)").trim();let q=parseNum(r[iQ]);if(!q)continue;
+    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iK]==null)continue;let m;
+      if(iF>=0){m=mOf(r[iF]);if(!m||(skipM&&m<=skipM))continue}else{const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;m=mm.slice(0,4)+"-"+mm.slice(4,6)}
+      const dis=String(r[iS]).trim(),sku=String(r[iK]).trim(),seg=String(r[iO]||"(trống)").trim();let q=parseNum(r[iQ]);if(!q)continue;
       // Company / Office: dòng âm là NPP nhờ NPP khác giao hộ (Corporation Purchase), vẫn là SO của NPP nên cộng dương; segment khác âm = trả hàng, trừ khỏi SO
       if(q<0&&seg==="Company / Office"&&(iT<0||String(r[iT]).trim()==="CO")){q=-q;cp+=q}
       const a=(((data[dis]=data[dis]||{})[m]=data[dis][m]||{})[sku]=data[dis][m][sku]||{});a[seg]=(a[seg]||0)+q;ms.add(m);n++}
@@ -611,7 +621,7 @@ $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     for(const d in data)for(const m in data[d])(mg[d]=mg[d]||{})[m]=data[d][m];
     const files=part?[...new Set(String(old.file).split(" + ").concat(f.name))].join(" + "):f.name;
     S.soseg={file:files,months:[...new Set([...(part?old.months:[]),...ms])].sort(),data:part?mg:data};LS.set("soseg",S.soseg);
-    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP${part?" (ghi đè vào số cũ của các NPP này)":""}, các tháng ${[...ms].sort().map(mLbl).join(", ")}.${cp?` Cộng dương ${fmt(cp)} thùng Company / Office giao hộ.`:""}`);refreshAll();loadNpp();
+    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP${part?" (ghi đè vào số cũ của các NPP này)":""}, các tháng ${[...ms].sort().map(mLbl).join(", ")}${iF>=0?` theo ngày giao đủ hàng${skipM?` (bỏ ${mLbl(skipM)} vì thiếu đơn đặt từ tháng trước)`:""}`:""}.${cp?` Cộng dương ${fmt(cp)} thùng Company / Office giao hộ.`:""}`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 // PnL Detail 2026: mỗi dòng Year_Month × DisID, cột theo mẫu báo cáo PnL Detail
 const PNL_COL={vol:"1. Total_Volume",rev:"2. Sales_revenue",cogs:"3. COGS",disc:"4. Discount_for_Whole_Sales",hireWh:"6.1a Hiring Warehouse",depFork:"6.1b Depreciation Forklift",depTruck:"6.2a Depreciation truck/3 wheels",petro:"6.2b Transport Petro fees (truck)",bike:"6.2c Transport fees (Bike)",trOther:"6.2d Transporation other fee",driver:"6.2e Delivery & Driver",whKeeper:"6.3a WH Keeper, FLT driver & Accountant",dsm:"6.3b DSM cost",mgmt:"6.3c Management cost",office:"6.3d Office expenses",otherFee:"6.3e Other fees",mkWs:"6.4a Wholesales",mkRt:"6.4b Retailers",mkOt:"6.4c Others - Total Makert",capInt:"6.5a Interest expenses",capBad:"6.5b Bad debt provision",capOt:"6.5c Others - Capital cost",cdInt:"7.a CD_Interest",cdAmt:"7.b CD_Amount",dip:"7.c DIP_Amount",oiOther:"7.d Other (Increase price/Promotion)",pbt:"8. Profit_Before_Tax",tax:"9. Income Tax (CIT)",pat:"10. Profit_After_Tax",curAcc:"14.a Current account",credit:"14.b Credit for Outlets",inv:"14.c Inventory",cdHold:"14.d CD_hold",deposit:"14.e Cash deposit & DMF",fixed:"14.f Remaing value fixed assets",roi:"15 ROI(%)",opex:"6.Operating Cost"};
