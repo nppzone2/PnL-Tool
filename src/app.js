@@ -563,7 +563,9 @@ $("#fileGis").addEventListener("change",async e=>{const f=e.target.files[0];if(!
       const dis=String(r[iD]),sku=m[1],ws=parseNum(r[i1]),rt=parseNum(r[i2]);if(!ws&&!rt)continue;
       const slot=((prices[dis]=prices[dis]||{})[pm]=prices[dis][pm]||{});const t=+d;if(!slot[sku]||slot[sku].t<=t)slot[sku]={ws,rt,t};n++}
     if(!n&&!nf&&!nc)throw new Error("File không có dòng giá bán (Name dạng “HS - Heineken…”, có Val01/Val02). Hãy export đầy đủ, không giới hạn 1.000 dòng.");
-    S.gis={file:f.name,prices,fuel:fuelG,costs};LS.set("gis",S.gis);status(st,"ok",`Đã nạp ${fmt(n)} dòng giá của ${Object.keys(prices).length} NPP, ${fmt(nf)} dòng Petro fee (số lít × giá), ${fmt(nc)} dòng chi phí của ${Object.keys(costs).length} NPP.`);refreshAll();
+    const og=S.gis&&S.gis.file?S.gis:null;
+    S.gis=og?{file:joinFiles(og.file,f.name),prices:mergeDM(og.prices,prices),fuel:mergeDM(og.fuel,fuelG),costs:mergeDM(og.costs,costs)}:{file:f.name,prices,fuel:fuelG,costs};
+    LS.set("gis",S.gis);status(st,"ok",`${og?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng giá của ${Object.keys(prices).length} NPP, ${fmt(nf)} dòng Petro fee (số lít × giá), ${fmt(nc)} dòng chi phí của ${Object.keys(costs).length} NPP.`);refreshAll();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#fileAmt").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#amtStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=rows.findIndex(r=>r&&r.map(String).some(x=>/^(Distributor_ID|Seller_ID)$/.test(x)));if(h<0)throw new Error("Không thấy cột Distributor_ID");
@@ -621,11 +623,9 @@ $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!
       const a=(((data[dis]=data[dis]||{})[m]=data[dis][m]||{})[sku]=data[dis][m][sku]||{});a[seg]=(a[seg]||0)+q;ms.add(m);n++}
     if(!n)throw new Error("File không có dòng sản lượng nào");
     // File chỉ có một số NPP (ví dụ file chi tiết theo outlet): ghi đè đúng NPP × tháng có trong file, giữ nguyên phần còn lại
-    const old=S.soseg,part=old&&Object.keys(data).length<Object.keys(old.data).length,mg=part?JSON.parse(JSON.stringify(old.data)):{};
-    for(const d in data)for(const m in data[d])(mg[d]=mg[d]||{})[m]=data[d][m];
-    const files=part?[...new Set(String(old.file).split(" + ").concat(f.name))].join(" + "):f.name;
+    const old=S.soseg,part=!!old,mg=mergeDM(part?old.data:null,data),files=part?joinFiles(old.file,f.name):f.name;
     S.soseg={file:files,months:[...new Set([...(part?old.months:[]),...ms])].sort(),data:part?mg:data};LS.set("soseg",S.soseg);
-    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP${part?" (ghi đè vào số cũ của các NPP này)":""}, các tháng ${[...ms].sort().map(mLbl).join(", ")}${iF>=0?` theo ngày giao đủ hàng${skipM?` (bỏ ${mLbl(skipM)} vì thiếu đơn đặt từ tháng trước)`:""}`:""}.${cp?` Cộng dương ${fmt(cp)} thùng Company / Office giao hộ.`:""}`);refreshAll();loadNpp();
+    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP${part?" (nạp tiếp nối: ghi đè đúng NPP × tháng trong file, giữ các tháng khác)":""}, các tháng ${[...ms].sort().map(mLbl).join(", ")}${iF>=0?` theo ngày giao đủ hàng${skipM?` (bỏ ${mLbl(skipM)} vì thiếu đơn đặt từ tháng trước)`:""}`:""}.${cp?` Cộng dương ${fmt(cp)} thùng Company / Office giao hộ.`:""}`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 // PnL Detail 2026: mỗi dòng Year_Month × DisID, cột theo mẫu báo cáo PnL Detail
 const PNL_COL={vol:"1. Total_Volume",rev:"2. Sales_revenue",cogs:"3. COGS",disc:"4. Discount_for_Whole_Sales",hireWh:"6.1a Hiring Warehouse",depFork:"6.1b Depreciation Forklift",depTruck:"6.2a Depreciation truck/3 wheels",petro:"6.2b Transport Petro fees (truck)",bike:"6.2c Transport fees (Bike)",trOther:"6.2d Transporation other fee",driver:"6.2e Delivery & Driver",whKeeper:"6.3a WH Keeper, FLT driver & Accountant",dsm:"6.3b DSM cost",mgmt:"6.3c Management cost",office:"6.3d Office expenses",otherFee:"6.3e Other fees",mkWs:"6.4a Wholesales",mkRt:"6.4b Retailers",mkOt:"6.4c Others - Total Makert",capInt:"6.5a Interest expenses",capBad:"6.5b Bad debt provision",capOt:"6.5c Others - Capital cost",cdInt:"7.a CD_Interest",cdAmt:"7.b CD_Amount",dip:"7.c DIP_Amount",oiOther:"7.d Other (Increase price/Promotion)",pbt:"8. Profit_Before_Tax",tax:"9. Income Tax (CIT)",pat:"10. Profit_After_Tax",curAcc:"14.a Current account",credit:"14.b Credit for Outlets",inv:"14.c Inventory",cdHold:"14.d CD_hold",deposit:"14.e Cash deposit & DMF",fixed:"14.f Remaing value fixed assets",roi:"15 ROI(%)",opex:"6.Operating Cost"};
@@ -639,7 +639,8 @@ $("#filePnl").addEventListener("change",async e=>{const f=e.target.files[0];if(!
       o.cit=o.pbt>0?Math.round(o.tax/o.pbt*100):20;delete o.opex;delete o.tax;delete o.pbt;
       const x=data[id]=data[id]||{code:String(r[ix("TenantName")]).trim(),months:{}};x.months[m]=o;n++}
     if(!n)throw new Error("File không có dòng nào");
-    LS.set("pnl",{file:f.name,data});status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP. Đang tải lại trang…`);setTimeout(()=>location.reload(),900);
+    const op=PNL_SRC,md=op?JSON.parse(JSON.stringify(op.data)):{};for(const id in data){const x=md[id]=md[id]||{code:data[id].code,months:{}};Object.assign(x.months,data[id].months)}
+    LS.set("pnl",{file:op?joinFiles(op.file,f.name):f.name,data:md});status(st,"ok",`${op?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng của ${Object.keys(data).length} NPP. Đang tải lại trang…`);setTimeout(()=>location.reload(),900);
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#pnlReset").onclick=()=>{LS.set("pnl",null);location.reload()};
 // SaleIn Amount: giá mua chưa VAT theo Distributor_ID × tháng × ShortCode, bình quân các dòng có đơn giá (bỏ hàng tặng giá 0)
@@ -652,7 +653,7 @@ $("#fileSi").addEventListener("change",async e=>{const f=e.target.files[0];if(!f
       const m=dt.slice(0,4)+"-"+dt.slice(4,6),k=String(r[iD]).trim()+"|"+m+"|"+String(r[iK]).trim(),x=acc[k]=acc[k]||[0,0];x[0]+=a;x[1]+=v;ms.add(m);n++}
     if(!n)throw new Error("File không có dòng mua hàng nào");
     const data={};for(const k in acc){const [d,m,sku]=k.split("|");((data[d]=data[d]||{})[m]=data[d][m]||{})[sku]=Math.round(acc[k][0]/acc[k][1])}
-    S.sibuy={file:f.name,months:[...ms].sort(),data};LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
+    const ob=S.sibuy;S.sibuy=ob?{file:joinFiles(ob.file,f.name),months:[...new Set([...ob.months,...ms])].sort(),data:mergeDM(ob.data,data)}:{file:f.name,months:[...ms].sort(),data};LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#siReset").onclick=()=>{S.sibuy=BUN.sibuy||null;LS.set("sibuy",null);refreshAll();loadNpp()};
 $("#segReset").onclick=()=>{S.soseg=BUN.soseg||null;LS.set("soseg",null);refreshAll();loadNpp()};
@@ -669,6 +670,9 @@ $("#packBtn").addEventListener("click",async()=>{const st=$("#packStatus");
     await saveBlob("inbox.sealed",new Blob([JSON.stringify({v:1,at,wk:b64(wk),iv:b64(iv),ct:b64(ct)})],{type:"application/json"}));
     status(st,"ok",`Đã tạo inbox.sealed (${fmt(ct.length/1024)} KB, đóng gói lúc ${at}). Upload vào thư mục src trên GitHub để cập nhật trang.`);
   }catch(err){status(st,"bad",esc(err.message))}});
+// Nạp tiếp nối: số mới ghi đè đúng NPP × tháng có trong file, giữ nguyên các tháng/NPP khác
+const mergeDM=(old,neu)=>{const o=old?JSON.parse(JSON.stringify(old)):{};for(const d in neu)for(const m in neu[d])(o[d]=o[d]||{})[m]=neu[d][m];return o};
+const joinFiles=(a,b)=>a?[...new Set(String(a).split(" + ").concat(b))].join(" + "):b;
 const edeCount=()=>Object.keys(S.gis.costs||{}).length;
 function renderSrc(){
   const sb=S.sibuy;status($("#siStatus"),sb?"ok":"bad",sb?`Đang dùng: <b>${esc(sb.file)}</b>${!LS.get("sibuy",null)&&BUN.sibuy?" (bản build)":""} · ${Object.keys(sb.data).length} NPP · ${sb.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleIn Amount.");
