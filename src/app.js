@@ -25,15 +25,18 @@ const LS={get(k,d){try{const v=localStorage.getItem("npppl:"+k);return v?JSON.pa
 // ---- state
 // Gói dữ liệu EDE Input + SaleOut by Segment nhúng lúc build (GitHub Actions); số Admin nạp tay trên máy sẽ ghi đè
 const BUN=(typeof BUNDLE!=="undefined"&&BUNDLE)||{};
+// Số Admin nạp tay trên máy chỉ được dùng khi mới hơn gói dữ liệu trong bản build (số nạp trước đây không có mốc thời gian thì lấy bản build)
+const pickSrc=k=>{const g=LS.get(k,null),b=BUN[k]||null;return g&&g.file&&(!b||(g.ts&&(!BUN.ts||g.ts>BUN.ts)))?g:b};
+const isBuild=k=>!!BUN[k]&&pickSrc(k)===BUN[k];
 // PnL Detail trong gói dữ liệu (hoặc Admin nạp tay trên máy) ghi đè số tháng của NPP trong bản build, không cần DATA_KEY
-const PNL_SRC=(g=>g&&g.file?g:(BUN.pnl||null))(LS.get("pnl",null));
+const PNL_SRC=pickSrc("pnl");
 if(PNL_SRC)for(const id in PNL_SRC.data){const x=PNL_SRC.data[id];let n=NPP.find(z=>z.id===id);
   if(!n){n={code:x.code,id,region:"",area:"",months:{}};NPP.push(n)}
   Object.assign(n.months,x.months);
   // Tháng mở (chưa chốt) chỉ giữ một tháng ngay sau tháng chốt cuối cùng
   const ks=Object.keys(n.months).filter(k=>!n.months[k].open).sort(),last=ks[ks.length-1];
   if(last)for(const k of Object.keys(n.months))if(n.months[k].open&&k<=last)delete n.months[k]}
-const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:(g=>g&&g.file?g:(BUN.gis||{file:null,prices:{}}))(LS.get("gis",null)),soseg:(g=>g&&g.file?g:(BUN.soseg||null))(LS.get("soseg",null)),sibuy:(g=>g&&g.file?g:(BUN.sibuy||null))(LS.get("sibuy",null)),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
+const S={fuelAdj:LS.get("fuelAdj",{}),tmsSum:LS.get("tmsSum",{}),fuel:LS.get("fuel",{}),fuelW:LS.get("fuelW",50),soSum:LS.get("soSum",{}),si:LS.get("si",null)||SI_DEFAULT,so:LS.get("so",null)||SO_DEFAULT,gis:pickSrc("gis")||{file:null,prices:{}},soseg:pickSrc("soseg"),sibuy:pickSrc("sibuy"),chan:LS.get("chan",null)||{...DEFAULT_CHAN},prices:LS.get("prices",{})};
 
 // ---- benchmarks (closed months only)
 const gsum=(m,g)=>GRPKEYS[g].reduce((a,k)=>a+(m[k]||0),0);
@@ -565,7 +568,7 @@ $("#fileGis").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     if(!n&&!nf&&!nc)throw new Error("File không có dòng giá bán (Name dạng “HS - Heineken…”, có Val01/Val02). Hãy export đầy đủ, không giới hạn 1.000 dòng.");
     const og=S.gis&&S.gis.file?S.gis:null;
     S.gis=og?{file:joinFiles(og.file,f.name),prices:mergeDM(og.prices,prices),fuel:mergeDM(og.fuel,fuelG),costs:mergeDM(og.costs,costs)}:{file:f.name,prices,fuel:fuelG,costs};
-    LS.set("gis",S.gis);status(st,"ok",`${og?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng giá của ${Object.keys(prices).length} NPP, ${fmt(nf)} dòng Petro fee (số lít × giá), ${fmt(nc)} dòng chi phí của ${Object.keys(costs).length} NPP.`);refreshAll();
+    S.gis.ts=Date.now();LS.set("gis",S.gis);status(st,"ok",`${og?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng giá của ${Object.keys(prices).length} NPP, ${fmt(nf)} dòng Petro fee (số lít × giá), ${fmt(nc)} dòng chi phí của ${Object.keys(costs).length} NPP.`);refreshAll();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#fileAmt").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#amtStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=rows.findIndex(r=>r&&r.map(String).some(x=>/^(Distributor_ID|Seller_ID)$/.test(x)));if(h<0)throw new Error("Không thấy cột Distributor_ID");
@@ -628,7 +631,7 @@ $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!
       const dms=[...new Set(ks.flatMap(k=>Object.keys(o[k])))].filter(m=>m>first&&m<=last).sort();
       for(const m of dms){const agg={};for(const k of ks)if(o[k][m])for(const sku in o[k][m])for(const sg in o[k][m][sku])add(agg,[],sku,sg,o[k][m][sku][sg]);(dataAll[dis]=dataAll[dis]||{})[m]=agg;ms.add(m)}
       note.push(`${(NPP.find(z=>z.id===dis)||{}).code||dis}: đơn đặt ${mLbl(first)}–${mLbl(last)}, tháng giao đủ ${dms.length?mLbl(dms[0])+"–"+mLbl(dms[dms.length-1]):"chưa có"}`)}
-    S.soseg={file:files,months:[...new Set([...(part?old.months:[]),...ms])].sort(),data:dataAll,od:odAll};LS.set("soseg",S.soseg);
+    S.soseg={file:files,months:[...new Set([...(part?old.months:[]),...ms])].sort(),data:dataAll,od:odAll};S.soseg.ts=Date.now();LS.set("soseg",S.soseg);
     status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(byDeliv?od:data).length} NPP${part?" (nạp tiếp nối)":""}.${byDeliv?` Tính theo tháng giao đủ hàng · ${note.join(" · ")}.`:` Các tháng ${[...ms].sort().map(mLbl).join(", ")}.`}`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 // PnL Detail 2026: mỗi dòng Year_Month × DisID, cột theo mẫu báo cáo PnL Detail
@@ -644,7 +647,7 @@ $("#filePnl").addEventListener("change",async e=>{const f=e.target.files[0];if(!
       const x=data[id]=data[id]||{code:String(r[ix("TenantName")]).trim(),months:{}};x.months[m]=o;n++}
     if(!n)throw new Error("File không có dòng nào");
     const op=PNL_SRC,md=op?JSON.parse(JSON.stringify(op.data)):{};for(const id in data){const x=md[id]=md[id]||{code:data[id].code,months:{}};Object.assign(x.months,data[id].months)}
-    LS.set("pnl",{file:op?joinFiles(op.file,f.name):f.name,data:md});status(st,"ok",`${op?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng của ${Object.keys(data).length} NPP. Đang tải lại trang…`);setTimeout(()=>location.reload(),900);
+    LS.set("pnl",{file:op?joinFiles(op.file,f.name):f.name,data:md,ts:Date.now()});status(st,"ok",`${op?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng của ${Object.keys(data).length} NPP. Đang tải lại trang…`);setTimeout(()=>location.reload(),900);
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#pnlReset").onclick=()=>{LS.set("pnl",null);location.reload()};
 // SaleIn Amount: giá mua chưa VAT theo Distributor_ID × tháng × ShortCode, lấy giá của ngày mua cuối cùng trong tháng (bỏ hàng tặng giá 0)
@@ -659,7 +662,7 @@ $("#fileSi").addEventListener("change",async e=>{const f=e.target.files[0];if(!f
       if(day>x.d){x.d=day;x.a=0;x.v=0}if(day===x.d){x.a+=a;x.v+=v}ms.add(m);n++}
     if(!n)throw new Error("File không có dòng mua hàng nào");
     const data={};for(const k in acc){const [d,m,sku]=k.split("|");((data[d]=data[d]||{})[m]=data[d][m]||{})[sku]=Math.round(acc[k].a/acc[k].v)}
-    const ob=S.sibuy;S.sibuy=ob?{file:joinFiles(ob.file,f.name),months:[...new Set([...ob.months,...ms])].sort(),data:mergeDM(ob.data,data)}:{file:f.name,months:[...ms].sort(),data};LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
+    const ob=S.sibuy;S.sibuy=ob?{file:joinFiles(ob.file,f.name),months:[...new Set([...ob.months,...ms])].sort(),data:mergeDM(ob.data,data)}:{file:f.name,months:[...ms].sort(),data};S.sibuy.ts=Date.now();LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#siReset").onclick=()=>{S.sibuy=BUN.sibuy||null;LS.set("sibuy",null);refreshAll();loadNpp()};
 $("#segReset").onclick=()=>{S.soseg=BUN.soseg||null;LS.set("soseg",null);refreshAll();loadNpp()};
@@ -667,7 +670,7 @@ $("#segReset").onclick=()=>{S.soseg=BUN.soseg||null;LS.set("soseg",null);refresh
 $("#packBtn").addEventListener("click",async()=>{const st=$("#packStatus");
   try{if(!edeCount())throw new Error("Chưa có dữ liệu EDE: nạp file EDE Input PnL trước.");if(!S.soseg)throw new Error("Chưa có dữ liệu SaleOut by Segment: nạp file trước.");
     if(!PNL_SRC)throw new Error("Chưa có dữ liệu PnL Detail: nạp file PnL Detail trước.");
-    status(st,"","Đang mã hoá…");const at=new Date().toLocaleString("vi-VN"),body=new TextEncoder().encode(JSON.stringify({at,gis:S.gis,soseg:S.soseg,pnl:PNL_SRC,sibuy:S.sibuy}));
+    status(st,"","Đang mã hoá…");const at=new Date().toLocaleString("vi-VN"),body=new TextEncoder().encode(JSON.stringify({at,ts:Date.now(),gis:S.gis,soseg:S.soseg,pnl:PNL_SRC,sibuy:S.sibuy}));
     const ak=await crypto.subtle.generateKey({name:"AES-GCM",length:256},true,["encrypt"]),iv=crypto.getRandomValues(new Uint8Array(12));
     const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},ak,body));
     const pub=await crypto.subtle.importKey("jwk",{...INBOX_PUB,ext:true},{name:"RSA-OAEP",hash:"SHA-256"},false,["encrypt"]);
@@ -681,14 +684,14 @@ const mergeDM=(old,neu)=>{const o=old?JSON.parse(JSON.stringify(old)):{};for(con
 const joinFiles=(a,b)=>a?[...new Set(String(a).split(" + ").concat(b))].join(" + "):b;
 const edeCount=()=>Object.keys(S.gis.costs||{}).length;
 function renderSrc(){
-  const sb=S.sibuy;status($("#siStatus"),sb?"ok":"bad",sb?`Đang dùng: <b>${esc(sb.file)}</b>${!LS.get("sibuy",null)&&BUN.sibuy?" (bản build)":""} · ${Object.keys(sb.data).length} NPP · ${sb.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleIn Amount.");
-  const pn=PNL_SRC;status($("#pnlStatus"),pn?"ok":"",pn?`Đang dùng: <b>${esc(pn.file)}</b>${!LS.get("pnl",null)?" (bản build)":""} · ${Object.keys(pn.data).length} NPP · ${[...new Set(Object.values(pn.data).flatMap(x=>Object.keys(x.months)))].sort().map(mLbl).join(", ")}`:"Đang dùng PnL Detail có sẵn trong bản build (data.enc).");
-  const sg=S.soseg;status($("#segStatus"),sg?"ok":"bad",sg?`Đang dùng: <b>${esc(sg.file)}</b>${!LS.get("soseg",null)&&BUN.soseg?" (bản build)":""} · ${Object.keys(sg.data).length} NPP · ${sg.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleOut by Segment.");
+  const sb=S.sibuy;status($("#siStatus"),sb?"ok":"bad",sb?`Đang dùng: <b>${esc(sb.file)}</b>${isBuild("sibuy")?" (bản build)":" (nạp trên máy này)"} · ${Object.keys(sb.data).length} NPP · ${sb.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleIn Amount.");
+  const pn=PNL_SRC;status($("#pnlStatus"),pn?"ok":"",pn?`Đang dùng: <b>${esc(pn.file)}</b>${isBuild("pnl")?" (bản build)":" (nạp trên máy này)"} · ${Object.keys(pn.data).length} NPP · ${[...new Set(Object.values(pn.data).flatMap(x=>Object.keys(x.months)))].sort().map(mLbl).join(", ")}`:"Đang dùng PnL Detail có sẵn trong bản build (data.enc).");
+  const sg=S.soseg;status($("#segStatus"),sg?"ok":"bad",sg?`Đang dùng: <b>${esc(sg.file)}</b>${isBuild("soseg")?" (bản build)":" (nạp trên máy này)"} · ${Object.keys(sg.data).length} NPP · ${sg.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleOut by Segment.");
   status($("#packStatus"),BUN.at?"ok":"",BUN.at?`Bản build đang dùng gói dữ liệu đóng gói lúc <b>${esc(BUN.at)}</b>.`:"Bản build chưa có gói dữ liệu EDE / SaleOut.");
   const so=S.so;status($("#soStatus"),so?"ok":"",so?`Đang dùng: <b>${esc(so.file)}</b> · tháng ${mLbl(so.month)} · ${Object.keys(so.data).length} NPP`:"Chưa có file SO");
   const tm=Object.keys(Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{})).sort();status($("#tmsStatus"),"ok",`Đã có số chuyến các tháng: ${tm.map(mLbl).join(", ")} (T6–T9 nạp sẵn từ file bạn gửi).`);
   const A=S.si;status($("#amtStatus"),A?"ok":"",A?`Đang dùng: <b>${esc(A.file)}</b> · cột ${esc(A.col)} · tháng ${mLbl(A.month)} · ${Object.keys(A.data).length} NPP`:"Chưa nạp file SI by Amount.");
-  const g=S.gis,nd=Object.keys(g.prices||{}).length,nf=Object.keys(g.fuel||{}).length;status($("#gisStatus"),nd||nf?"ok":"bad",nd||nf?`Đang dùng: <b>${esc(g.file)}</b> · giá bán của ${nd} NPP · số lít Petro fee của ${nf} NPP`:"Chưa nạp file GIS có dòng giá. Hãy nạp file .xlsx gốc (giá dạng text vẫn đọc được).")}
+  const g=S.gis,nd=Object.keys(g.prices||{}).length,nf=Object.keys(g.fuel||{}).length;status($("#gisStatus"),nd||nf?"ok":"bad",nd||nf?`Đang dùng: <b>${esc(g.file)}</b>${isBuild("gis")?" (bản build)":" (nạp trên máy này)"} · giá bán của ${nd} NPP · chi phí EDE của ${Object.keys(g.costs||{}).length} NPP`:"Chưa nạp file GIS có dòng giá. Hãy nạp file .xlsx gốc (giá dạng text vẫn đọc được).")}
 
 // ---- Export Excel
 let DL=null;
