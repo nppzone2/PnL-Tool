@@ -615,8 +615,7 @@ $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     const add=(o,keys,sku,seg,q)=>{let x=o;for(const k of keys)x=x[k]=x[k]||{};x=x[sku]=x[sku]||{};x[seg]=(x[seg]||0)+q};
     for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null||r[iK]==null)continue;
       const dis=String(r[iS]).trim(),sku=String(r[iK]).trim(),seg=String(r[iO]||"(trống)").trim();let q=parseNum(r[iQ]);if(!q)continue;
-      // Company / Office: dòng âm là NPP nhờ NPP khác giao hộ (Corporation Purchase), vẫn là SO của NPP nên cộng dương; segment khác âm = trả hàng, trừ khỏi SO
-      if(q<0&&seg==="Company / Office"&&(iT<0||String(r[iT]).trim()==="CO")){q=-q;cp+=q}
+      // Dòng âm (CO) giữ nguyên số âm như PnL Detail
       if(byDeliv){const om=mOf(r[iOD]),dm=delivM(r);if(!om||!dm)continue;add(od,[dis,om,dm],sku,seg,q)}
       else{let m;if(iF>=0)m=delivM(r);else{const mm=String(r[iM]).replace(/\D/g,"");if(mm.length<6)continue;m=mm.slice(0,4)+"-"+mm.slice(4,6)}if(!m)continue;add(data,[dis,m],sku,seg,q);ms.add(m)}
       n++}
@@ -630,7 +629,7 @@ $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!
       for(const m of dms){const agg={};for(const k of ks)if(o[k][m])for(const sku in o[k][m])for(const sg in o[k][m][sku])add(agg,[],sku,sg,o[k][m][sku][sg]);(dataAll[dis]=dataAll[dis]||{})[m]=agg;ms.add(m)}
       note.push(`${(NPP.find(z=>z.id===dis)||{}).code||dis}: đơn đặt ${mLbl(first)}–${mLbl(last)}, tháng giao đủ ${dms.length?mLbl(dms[0])+"–"+mLbl(dms[dms.length-1]):"chưa có"}`)}
     S.soseg={file:files,months:[...new Set([...(part?old.months:[]),...ms])].sort(),data:dataAll,od:odAll};LS.set("soseg",S.soseg);
-    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(byDeliv?od:data).length} NPP${part?" (nạp tiếp nối)":""}.${byDeliv?` Tính theo tháng giao đủ hàng · ${note.join(" · ")}.`:` Các tháng ${[...ms].sort().map(mLbl).join(", ")}.`}${cp?` Cộng dương ${fmt(cp)} thùng Company / Office giao hộ.`:""}`);refreshAll();loadNpp();
+    status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(byDeliv?od:data).length} NPP${part?" (nạp tiếp nối)":""}.${byDeliv?` Tính theo tháng giao đủ hàng · ${note.join(" · ")}.`:` Các tháng ${[...ms].sort().map(mLbl).join(", ")}.`}`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 // PnL Detail 2026: mỗi dòng Year_Month × DisID, cột theo mẫu báo cáo PnL Detail
 const PNL_COL={vol:"1. Total_Volume",rev:"2. Sales_revenue",cogs:"3. COGS",disc:"4. Discount_for_Whole_Sales",hireWh:"6.1a Hiring Warehouse",depFork:"6.1b Depreciation Forklift",depTruck:"6.2a Depreciation truck/3 wheels",petro:"6.2b Transport Petro fees (truck)",bike:"6.2c Transport fees (Bike)",trOther:"6.2d Transporation other fee",driver:"6.2e Delivery & Driver",whKeeper:"6.3a WH Keeper, FLT driver & Accountant",dsm:"6.3b DSM cost",mgmt:"6.3c Management cost",office:"6.3d Office expenses",otherFee:"6.3e Other fees",mkWs:"6.4a Wholesales",mkRt:"6.4b Retailers",mkOt:"6.4c Others - Total Makert",capInt:"6.5a Interest expenses",capBad:"6.5b Bad debt provision",capOt:"6.5c Others - Capital cost",cdInt:"7.a CD_Interest",cdAmt:"7.b CD_Amount",dip:"7.c DIP_Amount",oiOther:"7.d Other (Increase price/Promotion)",pbt:"8. Profit_Before_Tax",tax:"9. Income Tax (CIT)",pat:"10. Profit_After_Tax",curAcc:"14.a Current account",credit:"14.b Credit for Outlets",inv:"14.c Inventory",cdHold:"14.d CD_hold",deposit:"14.e Cash deposit & DMF",fixed:"14.f Remaing value fixed assets",roi:"15 ROI(%)",opex:"6.Operating Cost"};
@@ -648,16 +647,18 @@ $("#filePnl").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     LS.set("pnl",{file:op?joinFiles(op.file,f.name):f.name,data:md});status(st,"ok",`${op?"Đã nạp tiếp nối":"Đã nạp"} ${fmt(n)} dòng của ${Object.keys(data).length} NPP. Đang tải lại trang…`);setTimeout(()=>location.reload(),900);
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#pnlReset").onclick=()=>{LS.set("pnl",null);location.reload()};
-// SaleIn Amount: giá mua chưa VAT theo Distributor_ID × tháng × ShortCode, bình quân các dòng có đơn giá (bỏ hàng tặng giá 0)
+// SaleIn Amount: giá mua chưa VAT theo Distributor_ID × tháng × ShortCode, lấy giá của ngày mua cuối cùng trong tháng (bỏ hàng tặng giá 0)
 $("#fileSi").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#siStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=findHdr(rows,["Distributor_ID","Date_ID","ShortCode","Sales_Volume","Sales_Amount"]);if(h<0)throw new Error("Không thấy các cột Distributor_ID, Date_ID, ShortCode, Sales_Volume, Sales_Amount");
     const H=rows[h],ix=k=>H.indexOf(k),iD=ix("Distributor_ID"),iT=ix("Date_ID"),iK=ix("ShortCode"),iV=ix("Sales_Volume"),iA=ix("Sales_Amount"),iP=ix("Sales_Unit_Price");
     const acc={},ms=new Set();let n=0;
     for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iD]==null||r[iK]==null)continue;const dt=String(r[iT]).replace(/\D/g,"");if(dt.length<6)continue;
       const v=parseNum(r[iV]),a=parseNum(r[iA]),up=iP>=0?parseNum(r[iP]):(v?a/v:0);if(!v||!(up>0))continue;
-      const m=dt.slice(0,4)+"-"+dt.slice(4,6),k=String(r[iD]).trim()+"|"+m+"|"+String(r[iK]).trim(),x=acc[k]=acc[k]||[0,0];x[0]+=a;x[1]+=v;ms.add(m);n++}
+      // Giá mua hiệu lực cuối tháng (ngày mua gần nhất): tháng tăng giá giữa tháng thì giá bán cả tháng theo giá mới
+      const m=dt.slice(0,4)+"-"+dt.slice(4,6),k=String(r[iD]).trim()+"|"+m+"|"+String(r[iK]).trim(),day=+dt.slice(0,8),x=acc[k]=acc[k]||{d:0,a:0,v:0};
+      if(day>x.d){x.d=day;x.a=0;x.v=0}if(day===x.d){x.a+=a;x.v+=v}ms.add(m);n++}
     if(!n)throw new Error("File không có dòng mua hàng nào");
-    const data={};for(const k in acc){const [d,m,sku]=k.split("|");((data[d]=data[d]||{})[m]=data[d][m]||{})[sku]=Math.round(acc[k][0]/acc[k][1])}
+    const data={};for(const k in acc){const [d,m,sku]=k.split("|");((data[d]=data[d]||{})[m]=data[d][m]||{})[sku]=Math.round(acc[k].a/acc[k].v)}
     const ob=S.sibuy;S.sibuy=ob?{file:joinFiles(ob.file,f.name),months:[...new Set([...ob.months,...ms])].sort(),data:mergeDM(ob.data,data)}:{file:f.name,months:[...ms].sort(),data};LS.set("sibuy",S.sibuy);status(st,"ok",`Đã nạp ${fmt(n)} dòng của ${Object.keys(data).length} NPP, các tháng ${S.sibuy.months.map(mLbl).join(", ")}.`);refreshAll();loadNpp();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#siReset").onclick=()=>{S.sibuy=BUN.sibuy||null;LS.set("sibuy",null);refreshAll();loadNpp()};
