@@ -81,7 +81,7 @@ function soFor(dis,m){
   return out}
 // reference prices: collected prices of earlier months first, then GIS input (pnl-month keyed)
 function refPrice(dis,m,sku){
-  for(let k=1;k<=3;k++){const mm=addM(m,-k),c=(S.prices[dis+"|"+mm]||{})[sku];
+  for(let k=1;k<=12;k++){const mm=addM(m,-k),c=(S.prices[dis+"|"+mm]||{})[sku];
     if(c&&(c.SDIS||c.OFF||c.ON))return {SDIS:c.SDIS||null,OFF:c.OFF||null,ON:c.ON||null,lag:k,month:mm,src:"Collect"};
     const g=((S.gis.prices[dis]||{})[mm]||{})[sku];if(g)return {SDIS:g.ws||null,OFF:g.rt||null,ON:g.rt||null,lag:k,month:mm,src:"GIS"}}
   return null}
@@ -369,7 +369,7 @@ S.buyVat=LS.get("buyVat",true);
 const vatOf=sku=>/^H0\d/.test(sku)?0.08:0.10; // Heineken 0.0 (không cồn) 8%, bia 10%
 function buyPrice(sku){const t=typed(sku,"BUY");if(t)return {v:t,src:"input"};const p=siBuyPrice(cur().id,mon(),sku);
   if(p)return {v:Math.round(p*(S.buyVat?1+vatOf(sku):1)),src:"SI"};return null}
-function siBuyPrice(dis,m,sku){const g=S.sibuy&&S.sibuy.data[dis]&&S.sibuy.data[dis][m];return g&&g[sku]||null}
+function siBuyPrice(dis,m,sku){const d=(S.sibuy&&S.sibuy.data[dis])||{};const same=d[m]&&d[m][sku];if(same)return same;const ms=Object.keys(d).filter(x=>x!==m&&d[x][sku]).sort();const prev=ms.filter(x=>x<m).pop();const hit=prev||ms.find(x=>x>m);return hit?d[hit][sku]:null}
 // Số đầy đủ, 3 số cuối hiển thị nhỏ
 const fT=v=>{if(v==null||!isFinite(v))return "–";if(Math.round(v)===0)return "0";const neg=v<0,d=String(Math.round(Math.abs(v))),last=d.slice(-3).padStart(3,"0"),head=d.length>3?d.slice(0,-3).replace(/\B(?=(\d{3})+(?!\d))/g,"."):"";return `${neg?"-":""}${head}${head?".":""}<span class="l3">${last}</span>`};
 function renderPriceKpi(buyT,rv){const el=$("#priceKpi");if(!el)return;const c=calc(),closed=!isOpen(),pr=cur().months[mon()]||{};
@@ -889,8 +889,8 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
     <td data-label="Điều chỉnh %"><input class="v" inputmode="decimal" data-fadj="${x.k}" value="${x.adj?fmt(x.adj,1):""}" placeholder="0"></td>
     <td data-label="Giá DO (đ/lít)"><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" value="${x.po!=null?fmt(x.po):""}" placeholder="${x.prov?fmt(x.p):"nhập giá"}">${x.prov?`<br><small class="muted">tạm tính theo ${mLbl(x.prov)}</small>`:""}</td>
     <td data-label="% share NPP">${x.sh!=null?`${fmt(x.sh,0)}%`:'<span class="muted">chưa nhập</span>'}</td>
-    <td data-label="Chi phí TMS sau share"><b>${x.cs!=null?fmt(x.cs):"–"}</b>${x.c!=null?`<br><small class="muted">trước share ${fmt(x.c)}</small>`:""}</td>
-    <td data-label="Chi phí NPP sau share">${x.act!=null?`<b>${fmt(x.act)}</b>`:'<span class="muted">chưa nhập</span>'}${x.pre!=null?`<br><small class="muted">trước share ${fmt(x.pre)}</small>`:""}</td>
+    <td data-label="Chi phí TMS sau share"><b>${x.cs!=null?fmt(x.cs):"–"}</b>${x.c!=null?`<br><small class="muted">${fmt(x.c)}</small>`:""}</td>
+    <td data-label="Chi phí NPP sau share">${x.act!=null?`<b>${fmt(x.act)}</b>`:'<span class="muted">chưa nhập</span>'}${x.pre!=null?`<br><small class="muted">${fmt(x.pre)}</small>`:""}</td>
     <td data-label="Chênh lệch">${d!=null?`<span class="${Math.abs(d)/x.cs>.15?"d-dn":""}"><b>${d>0?"+":""}${fmt(d)}</b><br><small>${d>0?"+":""}${fmt(d/x.cs*100,1)}%</small></span>`:"–"}</td></tr>`}).join("")}
   </tbody></table></div>
   ${(()=>{const line=x=>!x?"":x.cs==null?`${mLbl(x.k)}: ${x.c==null?"chưa có giá xăng":"chưa nhập % share NPP"}`:x.act==null?`${mLbl(x.k)}: TMS sau share ${fmt(x.cs)}, NPP chưa nhập`:`${mLbl(x.k)}: TMS sau share ${fmt(x.cs)}, NPP ${fmt(x.act)}, chênh ${x.act-x.cs>0?"+":""}${fmt((x.act-x.cs)/x.cs*100,1)}%${x.prov?` (giá tạm tính theo ${mLbl(x.prov)})`:""}`;
