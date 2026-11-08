@@ -128,7 +128,7 @@ function fillMonths(keep){const n=cur(),ms=Object.keys(n.months).sort();
 // NPP: tháng mặc định là M-1 so với tháng hiện tại; Admin giữ cách chọn cũ
 const mPrev=()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
 let CONF_MON=null; // tháng đã được xác nhận; Hủy trong hộp thoại sẽ quay về tháng này
-function defMon(ms){if(IS_ADMIN)return null;const m1=mPrev();return ms.includes(m1)?m1:(ms.filter(m=>m<=m1).pop()||null)}
+function defMon(ms){if(IS_ADMIN)return ms.includes(CUR_PL)?CUR_PL:null;const m1=mPrev();return ms.includes(m1)?m1:(ms.filter(m=>m<=m1).pop()||null)}
 // Box lưu ý khi NPP chọn tháng khác tháng mặc định
 function updMonNote(){const el=$("#monNote");if(!el)return;const dm=defMon(Object.keys(cur().months).sort());
   if(!dm||mon()===dm){el.hidden=true;el.innerHTML="";return}
