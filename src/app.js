@@ -1141,8 +1141,8 @@ async function loadSubs(){if(!IS_ADMIN)return;const msg=$("#subMsg");msg.textCon
     msg.textContent=`${SUBS.length} bài nộp · cập nhật lúc ${tLbl(Date.now())}${k?` · vừa nạp ${k} bài mới vào tool`:""}`}
   catch(e){msg.innerHTML=`<span class="errtxt">${esc(e.message)}</span>`}
   renderSubs()}
-function renderSubs(){if(!IS_ADMIN)return;const sel=$("#subMon"),ms=[...new Set(SUBS.map(x=>x.month).concat([mon()]))].sort().reverse();
-  const keep=sel.value||ms[0]||"";sel.innerHTML=ms.length?ms.map(m=>`<option value="${m}">${mLbl(m)}</option>`).join(""):`<option value="">Chưa có</option>`;
+function renderSubs(){if(!IS_ADMIN)return;const sel=$("#subMon"),ms=[...new Set(SUBS.map(x=>x.month).concat([CUR_PL,mon()]))].sort().reverse();
+  const keep=sel.value||CUR_PL;sel.innerHTML=ms.length?ms.map(m=>`<option value="${m}">${mLbl(m)}</option>`).join(""):`<option value="">Chưa có</option>`;
   sel.value=ms.includes(keep)?keep:(ms[0]||"");const m=sel.value,z=$("#subZone")?$("#subZone").value:"",rows=SUBS.filter(x=>x.month===m&&(!z||zoneOfDis(x.disId)===z)).sort((a,b)=>b.at-a.at);
   const sent=new Set(rows.map(x=>x.disId)),pending=NPP.filter(n=>n.months[m]&&n.months[m].open&&!sent.has(n.id)&&(!z||zoneOf(n)===z));
   const c=$("#subCnt");c.textContent=rows.length;c.hidden=!rows.length;
