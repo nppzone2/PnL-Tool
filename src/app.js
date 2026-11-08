@@ -547,16 +547,6 @@ const toDate=v=>{if(v instanceof Date)return v;if(typeof v==="number")return new
   const d=new Date(t);return isNaN(d)?null:d};
 const ym=d=>d&&!isNaN(d)?d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0"):null;
 function status(el,cls,msg){el.className="status "+cls;el.innerHTML=msg}
-$("#fileSo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#soStatus");status(st,"","Đang đọc file, file lớn có thể mất 10–30 giây…");
-  try{const rows=await readRows(f),h=findHdr(rows,["Seller_ID","ShortCode","Quantity"]);if(h<0)throw new Error("Không thấy các cột Seller_ID, ShortCode, Quantity");
-    const H=rows[h],ix=k=>H.indexOf(k),iS=ix("Seller_ID"),iK=ix("ShortCode"),iO=ix("Outlet_Segment"),iQ=ix("Quantity"),iD=ix("FullDelivDateTime"),iDoc=ix("DIS DocNo")>=0?ix("DIS DocNo"):ix("Source DocNo");
-    const data={},mc={},docs={},cs={};let n=0;
-    for(let i=h+1;i<rows.length;i++){const r=rows[i];if(!r||r[iS]==null)continue;const s=String(r[iS]),k=r[iK],o=r[iO]||"(trống)",q=parseNum(r[iQ]);
-      ((data[s]=data[s]||{})[k]=data[s][k]||{})[o]=(data[s][k][o]||0)+q;n++;cs[s]=(cs[s]||0)+q;if(iDoc>=0&&r[iDoc]!=null)(docs[s]=docs[s]||new Set).add(r[iDoc]);const m=ym(toDate(r[iD]));if(m)mc[m]=(mc[m]||0)+1}
-    const month=Object.entries(mc).sort((a,b)=>b[1]-a[1])[0]?.[0];if(!month)throw new Error("Không xác định được tháng từ FullDelivDateTime");
-    const sum={};for(const s in cs)sum[s]={cases:cs[s],orders:docs[s]?docs[s].size:null};S.soSum=S.soSum||{};S.soSum[month]=sum;LS.set("soSum",S.soSum);
-    const latest=!S.so||month>=S.so.month;if(latest){S.so={month,file:f.name,data};LS.set("so",S.so)}status(st,"ok",`Đã nạp ${fmt(n)} dòng, tháng ${mLbl(month)}${latest?"":" (lưu sản lượng và số đơn để tính định mức Petro fee)"}.`);fillMonths(latest?month:mon());loadNpp();
-  }catch(err){status(st,"bad",esc(err.message))}});
 $("#fileGis").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#gisStatus");status(st,"","Đang đọc file…");
   try{const rows=await readRows(f),h=findHdr(rows,["Discode","Name","Val01"]);if(h<0)throw new Error("Không thấy các cột Discode, Name, Val01");
     const H=rows[h],ix=k=>H.indexOf(k),iD=ix("Discode"),iN=ix("Name"),i1=ix("Val01"),i2=ix("Val02"),iT=ix("InputDate"),iG=ix("GroupLvl01");
@@ -597,7 +587,6 @@ $("#fileTms").addEventListener("change",async e=>{const f=e.target.files[0];if(!
     LS.set("tmsSum",S.tmsSum);status(st,"ok",`Đã nạp ${fmt(n)} dòng TMS các tháng ${ms.map(mLbl).join(", ")}.`);refreshAll();
   }catch(err){status(st,"bad",esc(err.message))}});
 $("#tmsReset").onclick=()=>{S.tmsSum={};LS.set("tmsSum",{});refreshAll()};
-$("#soReset").onclick=()=>{S.so=SO_DEFAULT;LS.set("so",null);fillMonths(S.so.month);loadNpp()};
 $("#gisReset").onclick=()=>{S.gis=BUN.gis||{file:null,prices:{}};LS.set("gis",null);refreshAll();loadNpp()};
 // SaleOut by Segment: cộng UOM theo Seller_ID × Calendar_Month × ShortCode × Outlet_Segment
 $("#fileSeg").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const st=$("#segStatus");status(st,"","Đang đọc file…");
@@ -693,7 +682,6 @@ function renderSrc(){
   const pn=PNL_SRC;status($("#pnlStatus"),pn?"ok":"",pn?`Đang dùng: <b>${esc(pn.file)}</b>${isBuild("pnl")?" (bản build)":" (nạp trên máy này)"} · ${Object.keys(pn.data).length} NPP · ${[...new Set(Object.values(pn.data).flatMap(x=>Object.keys(x.months)))].sort().map(mLbl).join(", ")}`:"Đang dùng PnL Detail có sẵn trong bản build (data.enc).");
   const sg=S.soseg;status($("#segStatus"),sg?"ok":"bad",sg?`Đang dùng: <b>${esc(sg.file)}</b>${isBuild("soseg")?" (bản build)":" (nạp trên máy này)"} · ${Object.keys(sg.data).length} NPP · ${sg.months.map(mLbl).join(", ")}`:"Chưa nạp file SaleOut by Segment.");
   status($("#packStatus"),BUN.at?"ok":"",BUN.at?`Bản build đang dùng gói dữ liệu đóng gói lúc <b>${esc(BUN.at)}</b>.`:"Bản build chưa có gói dữ liệu EDE / SaleOut.");
-  const so=S.so;status($("#soStatus"),so?"ok":"",so?`Đang dùng: <b>${esc(so.file)}</b> · tháng ${mLbl(so.month)} · ${Object.keys(so.data).length} NPP`:"Chưa có file SO");
   const tm=Object.keys(Object.assign({},TMS_SUM_DEFAULT,S.tmsSum||{})).sort();status($("#tmsStatus"),"ok",`Đã có số chuyến các tháng: ${tm.map(mLbl).join(", ")} (T6–T9 nạp sẵn từ file bạn gửi).`);
 
   const g=S.gis,nd=Object.keys(g.prices||{}).length,nf=Object.keys(g.fuel||{}).length;status($("#gisStatus"),nd||nf?"ok":"bad",nd||nf?`Đang dùng: <b>${esc(g.file)}</b>${isBuild("gis")?" (bản build)":" (nạp trên máy này)"} · giá bán của ${nd} NPP · chi phí EDE của ${Object.keys(g.costs||{}).length} NPP`:"Chưa nạp file GIS có dòng giá. Hãy nạp file .xlsx gốc (giá dạng text vẫn đọc được).")}
