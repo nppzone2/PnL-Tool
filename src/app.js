@@ -30,9 +30,12 @@ const pickSrc=k=>{const g=LS.get(k,null),b=BUN[k]||null;return g&&g.file&&(!b||(
 const isBuild=k=>!!BUN[k]&&pickSrc(k)===BUN[k];
 // PnL Detail trong gói dữ liệu (hoặc Admin nạp tay trên máy) ghi đè số tháng của NPP trong bản build, không cần DATA_KEY
 const PNL_SRC=pickSrc("pnl");
+const CUR_PL=(()=>{const d=new Date();let y=d.getFullYear(),m=d.getMonth();m-=1;if(m<0){m+=12;y-=1}return y+"-"+String(m+1).padStart(2,"0")})();
 if(PNL_SRC)for(const id in PNL_SRC.data){const x=PNL_SRC.data[id];let n=NPP.find(z=>z.id===id);
   if(!n){n={code:x.code,id,region:"",area:"",months:{}};NPP.push(n)}
   Object.assign(n.months,x.months);
+  // Tháng đang làm P&L luôn là M-1 so với hôm nay: tháng đó và các tháng sau luôn mở (chưa chốt) dù đã có dòng PnL Detail
+  for(const k of Object.keys(n.months))if(k>=CUR_PL)n.months[k].open=true;
   // Tháng mở (chưa chốt) chỉ giữ một tháng ngay sau tháng chốt cuối cùng
   const ks=Object.keys(n.months).filter(k=>!n.months[k].open).sort(),last=ks[ks.length-1];
   if(last)for(const k of Object.keys(n.months))if(n.months[k].open&&k<=last)delete n.months[k]}
