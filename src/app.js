@@ -878,19 +878,23 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   if(!isOpen()){$("#vFuel").innerHTML=$("#vStaff").innerHTML=$("#vMgmt").innerHTML=`<p class="lead">${mLbl(m)} đã chốt, không cần verify.</p>`;return}
   const ms=fuelMonths(n,m),npp=opsTotal(OPS_UI[0]),nppRaw=opsRaw(OPS_UI[0]),sP=opsShare(OPS_UI[0]);
   const rows=ms.map(k=>{const t=tmsSum(k)[n.id],l=truckLitres(t),po=fuel("truck",k),lb=k===m&&po==null?fuelLatestBefore("truck",m):null,p=po!=null?po:(lb?lb.p:null),prov=lb?lb.k:null,adj=fuelAdjOf(k),L2=l.L*(1+adj/100),c=p?L2*p:null,mm=n.months[k];
-    const act=k===m?npp:(mm&&!mm.open?mm.petro:null);return {k,t,l,po,p,prov,adj,L2,c,act}});
+    const shv=k===m?(S.ops[okey()]||{}).petro_sh:((gisCostsFor(n.id,k)||{}).petro||{}).s;
+    const sh=shv==null||shv===""||!isFinite(shv)?null:+shv,cs=c!=null&&sh!=null?c*sh/100:null;
+    const act=k===m?npp:(mm&&!mm.open?mm.petro:null);return {k,t,l,po,p,prov,adj,L2,c,sh,cs,act}});
   const cur9=rows.find(x=>x.k===m),fp=FIN("petro"),outs=hist(n,m).every(k=>!(n.months[k].petro>0))&&hist(n,m).some(k=>n.months[k].trOther>0);
   $("#vFuel").innerHTML=`${outs?`<p class="hint"><b style="color:var(--amber)">${n.code} thuê ngoài vận chuyển</b>, chi phí xăng dầu nằm trong mục Thuê xe ngoài. Số tính từ TMS chỉ để tham khảo.</p>`:""}
-  <div class="scroll"><table class="dt"><thead><tr><th class="l">Tháng</th><th>Số lít TMS</th><th>Điều chỉnh %</th><th>Giá DO (đ/lít)</th><th>Chi phí TMS</th><th>Chi phí NPP</th><th>Chênh lệch</th></tr></thead><tbody>
-  ${rows.map(x=>{const d=x.c!=null&&x.act?x.act-x.c:null;return `<tr${x.k===m?' style="background:var(--green-soft)"':""}><td class="l"><b>${mLbl(x.k)}</b>${x.k===m?"<small>tháng làm P&amp;L</small>":""}</td>
+  <div class="scroll"><table class="dt"><thead><tr><th class="l">Tháng</th><th>Chuyến · Km</th><th>Số lít TMS</th><th>Điều chỉnh %</th><th>Giá DO (đ/lít)</th><th>% share NPP</th><th>Chi phí TMS sau share</th><th>Chi phí NPP sau share</th><th>Chênh lệch</th></tr></thead><tbody>
+  ${rows.map(x=>{const d=x.cs!=null&&x.act!=null?x.act-x.cs:null;return `<tr${x.k===m?' style="background:var(--green-soft)"':""}><td class="l"><b>${mLbl(x.k)}</b>${x.k===m?"<small>tháng làm P&amp;L</small>":""}</td><td>${fmt(x.t.trips)} chuyến<br><small class="muted">${fmt(x.l.km)} km</small></td>
     <td>${fmt(x.L2)}${x.adj?`<br><small class="muted">gốc ${fmt(x.l.L)}</small>`:""}</td>
     <td><input class="v" inputmode="decimal" data-fadj="${x.k}" value="${x.adj?fmt(x.adj,1):""}" placeholder="0" style="max-width:80px"></td>
     <td><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" value="${x.po!=null?fmt(x.po):""}" placeholder="${x.prov?fmt(x.p):"nhập giá"}" style="max-width:110px">${x.prov?`<br><small class="muted">tạm tính theo ${mLbl(x.prov)}</small>`:""}</td>
-    <td><b>${x.c!=null?fmt(x.c):"–"}</b></td>
+    <td>${x.sh!=null?`${fmt(x.sh,0)}%`:'<span class="muted">chưa nhập</span>'}</td>
+    <td><b>${x.cs!=null?fmt(x.cs):"–"}</b></td>
     <td>${x.act!=null?fmt(x.act):'<span class="muted">chưa nhập</span>'}</td>
-    <td>${d!=null?`<span class="${Math.abs(d)/x.c>.15?"d-dn":""}"><b>${d>0?"+":""}${fmt(d)}</b><br><small>${d>0?"+":""}${fmt(d/x.c*100,1)}%</small></span>`:"–"}</td></tr>`}).join("")}
+    <td>${d!=null?`<span class="${Math.abs(d)/x.cs>.15?"d-dn":""}"><b>${d>0?"+":""}${fmt(d)}</b><br><small>${d>0?"+":""}${fmt(d/x.cs*100,1)}%</small></span>`:"–"}</td></tr>`}).join("")}
   </tbody></table></div>
-  ${(()=>{const line=x=>!x?"":x.c==null?`${mLbl(x.k)}: chưa có giá xăng`:x.act==null?`${mLbl(x.k)}: TMS ${fmt(x.c)}, NPP chưa nhập`:`${mLbl(x.k)}: TMS ${fmt(x.c)}, NPP ${fmt(x.act)}, chênh ${x.act-x.c>0?"+":""}${fmt((x.act-x.c)/x.c*100,1)}%${x.prov?` (giá tạm tính theo ${mLbl(x.prov)})`:""}`;const pm=rows.find(x=>x.k!==m)||null;return `<p class="hint">${[line(cur9),line(pm)].filter(Boolean).join("<br>")}</p>`})()}
+  ${(()=>{const line=x=>!x?"":x.cs==null?`${mLbl(x.k)}: ${x.c==null?"chưa có giá xăng":"chưa nhập % share NPP"}`:x.act==null?`${mLbl(x.k)}: TMS sau share ${fmt(x.cs)}, NPP chưa nhập`:`${mLbl(x.k)}: TMS sau share ${fmt(x.cs)}, NPP ${fmt(x.act)}, chênh ${x.act-x.cs>0?"+":""}${fmt((x.act-x.cs)/x.cs*100,1)}%${x.prov?` (giá tạm tính theo ${mLbl(x.prov)})`:""}`;
+const pm=rows.find(x=>x.k!==m)||null;return `<p class="hint">${[line(cur9),line(pm)].filter(Boolean).join("<br>")}</p>`})()}
   <div class="vfinal"><span>Final xăng dầu xe tải ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="petro" value="${fp!=null?fmt(fp):""}" placeholder="${nppRaw!=null?fmt(nppRaw):"nhập số final"}">
     <span class="muted">Để trống = dùng số NPP nhập</span></div>
   <div class="vfinal"><span>Final xăng dầu xe máy ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="bike" value="${FIN("bike")!=null?fmt(FIN("bike")):""}" placeholder="${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"nhập số final"}">
