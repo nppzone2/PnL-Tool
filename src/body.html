@@ -110,6 +110,8 @@ table.dt tr.coolrow td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
 table.dt{width:100%;border-collapse:collapse;font-size:13px}
 table.dt th{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
 table.dt th.l,table.dt td.l{text-align:left}
+table.dt.fuel{table-layout:fixed}table.dt.fuel th{white-space:normal;line-height:1.25;vertical-align:bottom;padding:8px 4px}table.dt.fuel td{vertical-align:top;padding:8px 4px;font-variant-numeric:tabular-nums;line-height:1.35}table.dt.fuel td small{display:block}table.dt.fuel input.v{width:100%;min-width:0;max-width:none;padding:4px 6px;box-sizing:border-box}table.dt.fuel td:first-child{width:14%}
+@media (max-width:640px){table.dt.fuel thead{display:none}table.dt.fuel,table.dt.fuel tbody,table.dt.fuel tr,table.dt.fuel td{display:block;width:auto}table.dt.fuel tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:10px 0;border-bottom:1px solid var(--line)}table.dt.fuel td{padding:0;text-align:left}table.dt.fuel td:first-child{grid-column:1/-1;width:auto}table.dt.fuel td[data-label]::before{content:attr(data-label);display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px}table.dt.fuel td.l{text-align:left}}
 table.dt td{padding:6px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.dt td.l b{display:block}table.dt td.l small{color:var(--muted)}
 table.dt tr.grp th{background:var(--surface-2);text-align:center}
