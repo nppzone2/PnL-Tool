@@ -923,7 +923,7 @@ function applyOps(){const open=isOpen();
 // ---- Verify: fuel
 const DO_MAX={"2026-10":30246};
 // Giá xăng tối đa cao nhất trong tháng (Bộ Công Thương), dùng cho xe máy
-const GAS_MAX={"2026-10":{e5:27700,e10:28250}};
+const GAS_MAX={"2026-10":{e5:27703,e10:28254}};
 function fuelMonths(n,m){return [addM(m,-1),m]}
 function fuelLatestBefore(v,m){const ks=new Set([...Object.keys((S.fuel||{})[fuelKey(v)]||{}),...Object.keys((S.fuel||{})[v]||{})]);const k=[...ks].filter(x=>x<m&&fuel(v,x)!=null).sort().pop();return k?{k,p:fuel(v,k)}:null}
 function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
