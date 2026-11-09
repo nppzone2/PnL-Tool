@@ -290,10 +290,10 @@ function recFields(rec){const g={wh:0,tr:0,mg:0,mk:0,cap:0};
   return {rev,cogs,disc,g,oi,tax:rec.tax||0,pat:rec.pat||0,invest}}
 function roiCauses(r){
   const n=cur(),mm=mon(),pmK=addM(mm,-1),pm=n.months[pmK];
-  if(!pm||pm.open||!r.invest||!isFinite(r.roi))return "";
+  if(!pm||pm.open||!r.invest||!isFinite(r.roi))return `<div class="block roi-why"><p class="lead">Chưa có tháng trước đã chốt để so sánh ROI ${mLbl(mm)}.</p></div>`;
   const p=recFields(pm);if(!p.invest)return "";
   const I=r.invest,Ip=p.invest,roiP=p.pat/Ip*100,d=r.roi-roiP;
-  if(Math.abs(d)<=ROI_TH)return "";
+  if(Math.abs(d)<=ROI_TH)return `<div class="block roi-why"><p class="lead">ROI ${mLbl(mm)} ${fmt(r.roi,2)}% so với ${mLbl(pmK)} ${fmt(roiP,2)}%: lệch ${d>0?"+":""}${fmt(d,2)} điểm, trong ngưỡng ±${ROI_TH} điểm, chưa cần phân tích nguyên nhân.</p></div>`;
   const k=x=>x/I*100,cap=p.pat*(Ip-I)/(I*Ip)*100;
   const items=[
     ["Doanh thu",r.rev-p.rev],["Giá vốn",-(r.cogs-p.cogs)],["Chiết khấu WS",-(r.disc-p.disc)],
@@ -1030,10 +1030,18 @@ function depReport(id,m){const rows=FA.filter(a=>a.id===String(id)).map(a=>depRo
 const depDate=a=>`${String(a.day).padStart(2,"0")}/${String(a.m).padStart(2,"0")}/${a.y}`;
 // Khấu hao và tài sản còn lại lấy từ tab Khấu hao theo tháng làm P&L; chưa có sổ TSCĐ thì lấy số tháng trước
 // reset: xoá số đang nhập để dùng số tham chiếu (khi đổi NPP/tháng); không reset thì giữ số người dùng đã nhập
+// Từ tháng này trở đi, khấu hao P&L và tài sản còn lại (thẻ GIS) lấy theo sổ TSCĐ; T1–T8 giữ logic EDE đã chốt
+const DEP_FA_FROM="2026-09";
 function applyDepRefs(reset){const n=cur(),m=n.months[mon()];
   ["depTruck_q","depTruck_v","depTruck_s","depFork_q","depFork_v","depFork_s","depTools_q","depTools_v","depTools_s","fixed"].forEach(id=>{const el=$("#"+id);delete el.dataset.ref;el.placeholder=""});
-  if(!m||!m.open)return;
+  if(!m)return;
   const d=depReport(n.id,mon()),r=n.months[addM(mon(),-1)],useFa=d.n>0;
+  if(!m.open){ // tháng đã chốt từ T9: ghi đè số EDE bằng số theo sổ TSCĐ (khoá, không sửa)
+    if(!(useFa&&mon()>=DEP_FA_FROM))return;
+    const amt={depTruck:d.g.truck.amt,depFork:d.g.fork.amt,depTools:d.g.tools.amt};
+    ["depTruck","depFork","depTools"].forEach(k=>{const v=amt[k];$("#"+k+"_q").value=v?"1":"0";$("#"+k+"_v").value=v?fmt(v):"";$("#"+k+"_s").value=v?"100":"0"});
+    const ef=$("#fixed");ef.value=fmt(d.value);delete ef.dataset.fx;delete ef.dataset.fxt;return;
+  }
   const dv={depTruck:useFa?d.g.truck.amt:(r?r.depTruck||0:0),depFork:useFa?d.g.fork.amt:(r?r.depFork||0:0),depTools:useFa?d.g.tools.amt:(r?r.depTools||0:0)};
   ["depTruck","depFork","depTools"].forEach(k=>{const v=dv[k];[["_q",v?1:0],["_v",v],["_s",v?100:0]].forEach(([x,rv])=>{const el=$("#"+k+x);if(reset)el.value="";el.dataset.ref=String(rv);el.placeholder=fmt(rv)})});
   const fx=useFa?d.value:(r?(r.fixed||0)-(r.depTruck||0)-(r.depFork||0)-(r.depTools||0):0);
