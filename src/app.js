@@ -921,12 +921,14 @@ function applyOps(){const open=isOpen();
   set("credit",o.credit??"");}
 
 // ---- Verify: fuel
+const DO_MAX={"2026-10":null};
 function fuelMonths(n,m){return [addM(m,-1),m]}
 function fuelLatestBefore(v,m){const ks=new Set([...Object.keys((S.fuel||{})[fuelKey(v)]||{}),...Object.keys((S.fuel||{})[v]||{})]);const k=[...ks].filter(x=>x<m&&fuel(v,x)!=null).sort().pop();return k?{k,p:fuel(v,k)}:null}
 function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   if(!isOpen()){$("#vFuel").innerHTML=$("#vStaff").innerHTML=$("#vMgmt").innerHTML=`<p class="lead">${mLbl(m)} đã chốt, không cần verify.</p>`;return}
   const ms=fuelMonths(n,m),npp=opsTotal(OPS_UI[0]),nppRaw=opsRaw(OPS_UI[0]),sP=opsShare(OPS_UI[0]);
   // Ghi chú dưới mỗi Final: chi phí tháng trước theo P&L EDE (trước và sau share)
+  const doMaxOpts=DO_MAX[m]?`<option value="${fmt(DO_MAX[m])}">DO cao nhất ${mLbl(m)}</option>`:"";
   const pmE=k=>{const pk=addM(m,-1),g=(gisCostsFor(n.id,pk)||{})[k];if(!g||!g.v)return `${mLbl(pk)} theo P&amp;L EDE: chưa có số`;const sh=g.s??100;return `${mLbl(pk)} theo P&amp;L EDE: trước share ${fmt(g.v)} · sau share ${fmt(g.v*sh/100)}`};
   const rows=ms.map(k=>{const t=((tmsSum(k)||{})[n.id])||null,l=t?truckLitres(t):{L:null,km:null},po=fuel("truck",k),lb=k===m&&po==null?fuelLatestBefore("truck",m):null,p=po!=null?po:(lb?lb.p:null),prov=lb?lb.k:null,adj=fuelAdjOf(k),L2=t?l.L*(1+adj/100):null,c=(t&&p)?L2*p:null,mm=n.months[k],gp=(gisCostsFor(n.id,k)||{}).petro||{};
     const shv=k===m?(S.ops[okey()]||{}).petro_sh:gp.s;
@@ -938,7 +940,7 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   ${rows.map(x=>{const d=x.cs!=null&&x.act!=null?x.act-x.cs:null;return `<tr${x.k===m?' style="background:var(--green-soft)"':""}><td class="l"><b>${mLbl(x.k)}</b>${x.k===m?"<small>tháng làm P&amp;L</small>":""}</td><td data-label="Chuyến / Km">${x.t?fmt(x.t.trips)+" / "+fmt(x.l.km):'<span class="muted">chưa có TMS</span>'}</td>
     <td data-label="Số lít TMS">${x.L2!=null?fmt(x.L2):"–"}${x.adj&&x.l.L!=null?`<br><small class="muted">gốc ${fmt(x.l.L)}</small>`:""}</td>
     <td data-label="Điều chỉnh %"><input class="v" inputmode="decimal" data-fadj="${x.k}" value="${x.adj?fmt(x.adj,1):""}" placeholder="0"></td>
-    <td data-label="Giá DO (đ/lít)"><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" value="${x.po!=null?fmt(x.po):""}" placeholder="${x.prov?fmt(x.p):"nhập giá"}">${x.prov?`<br><small class="muted">tạm tính theo ${mLbl(x.prov)}</small>`:""}</td>
+    <td data-label="Giá DO (đ/lít)"><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" ${x.k===m?'list="doMaxList"':""} value="${x.po!=null?fmt(x.po):""}" placeholder="${x.prov?fmt(x.p):"nhập giá"}">${x.prov?`<br><small class="muted">tạm tính theo ${mLbl(x.prov)}</small>`:""}${x.k===m?`<datalist id="doMaxList">${doMaxOpts}</datalist>`:""}</td>
     <td data-label="% share NPP">${x.sh!=null?`${fmt(x.sh,0)}%`:'<span class="muted">chưa nhập</span>'}</td>
     <td data-label="Chi phí TMS sau share"><b>${x.cs!=null?fmt(x.cs):"–"}</b>${x.c!=null?`<br><small class="muted">${fmt(x.c)}</small>`:""}</td>
     <td data-label="Chi phí NPP sau share">${x.act!=null?`<b>${fmt(x.act)}</b>`:'<span class="muted">chưa nhập</span>'}${x.pre!=null?`<br><small class="muted">${fmt(x.pre)}</small>`:""}</td>
