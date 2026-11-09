@@ -104,7 +104,7 @@ const zoneOf=n=>n.region||"Khác",zoneOfDis=id=>{const n=NPP.find(x=>x.id===id);
 const ZONES=[...new Set(NPP.map(zoneOf))].sort();
 [$("#selZone"),$("#subZone")].forEach(el=>{el.innerHTML=`<option value="">Tất cả khu vực</option>`+ZONES.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join("")});
 function fillNpp(keep){const z=$("#selZone").value,list=NPP.map((n,i)=>[n,i]).filter(([n])=>IS_ADMIN?(!z||zoneOf(n)===z):n.id===window.__USER);
-  $("#selNpp").innerHTML=list.map(([n,i])=>`<option value="${i}">${n.code} · ${n.area}</option>`).join("");
+  $("#selNpp").innerHTML=list.map(([n,i])=>`<option value="${i}">${n.code}</option>`).join("");
   $("#selNpp").value=list.some(([,i])=>i===keep)?keep:(list[0]?list[0][1]:0);
   if(!IS_ADMIN){$("#selZone").closest("div").hidden=true;$("#selNpp").disabled=true}}
 fillNpp(0);
@@ -943,7 +943,7 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   ${rows.map(x=>{const d=x.cs!=null&&x.act!=null?x.act-x.cs:null;return `<tr${x.k===m?' style="background:var(--green-soft)"':""}><td class="l"><b>${mLbl(x.k)}</b>${x.k===m?"<small>tháng làm P&amp;L</small>":""}</td><td data-label="Chuyến / Km">${x.t?fmt(x.t.trips)+" / "+fmt(x.l.km):'<span class="muted">chưa có TMS</span>'}</td>
     <td data-label="Số lít TMS">${x.L2!=null?fmt(x.L2):"–"}${x.adj&&x.l.L!=null?`<br><small class="muted">gốc ${fmt(x.l.L)}</small>`:""}</td>
     <td data-label="Điều chỉnh %"><input class="v" inputmode="decimal" data-fadj="${x.k}" value="${x.adj?fmt(x.adj,1):""}" placeholder="0"></td>
-    <td data-label="Giá DO (đ/lít)"><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" ${x.k===m?'list="doMaxList"':""} value="${x.po!=null?fmt(x.po):""}" placeholder="${x.prov?fmt(x.p):"nhập giá"}">${x.prov?`<br><small class="muted">tạm tính theo ${mLbl(x.prov)}</small>`:""}${x.k===m?`<datalist id="doMaxList">${doMaxOpts}</datalist>`:""}</td>
+    <td data-label="Giá DO (đ/lít)"><input class="v" inputmode="decimal" data-fuel="truck" data-m="${x.k}" value="${x.po!=null?fmt(x.po):""}" placeholder="${x.prov?fmt(x.p):"nhập giá"}">${x.prov?`<br><small class="muted">tạm tính theo ${mLbl(x.prov)}</small>`:""}${x.k===m&&DO_MAX[m]?`<select class="pick" data-pick="do" data-m="${m}"><option value="">Chọn giá cao nhất…</option>${doMaxOpts}</select>`:""}</td>
     <td data-label="% share NPP">${x.sh!=null?`${fmt(x.sh,0)}%`:'<span class="muted">chưa nhập</span>'}</td>
     <td data-label="Chi phí TMS sau share"><b>${x.cs!=null?fmt(x.cs):"–"}</b>${x.c!=null?`<br><small class="muted">${fmt(x.c)}</small>`:""}</td>
     <td data-label="Chi phí NPP sau share">${x.act!=null?`<b>${fmt(x.act)}</b>`:'<span class="muted">chưa nhập</span>'}${x.pre!=null?`<br><small class="muted">${fmt(x.pre)}</small>`:""}</td>
@@ -954,10 +954,10 @@ const pm=rows.find(x=>x.k!==m)||null;return `<p class="hint">${[line(cur9),line(
   <div class="vfinal"><span>Final xăng dầu xe tải ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="petro" value="${fp!=null?fmt(fp):""}" placeholder="${nppRaw!=null?fmt(nppRaw):"nhập số final"}">
     <span class="muted">Để trống = dùng số NPP nhập</span></div>
   <p class="hint">${pmE("petro")}</p>
-  <div class="vfinal"><span>Final xăng dầu xe máy ${mLbl(m)}</span><input class="v" inputmode="decimal" list="gasMaxList" data-fin="bike" value="${FIN("bike")!=null?fmt(FIN("bike")):""}" placeholder="${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"nhập số final"}">
+  <div class="vfinal"><span>Final xăng dầu xe máy ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="bike" value="${FIN("bike")!=null?fmt(FIN("bike")):""}" placeholder="${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"nhập số final"}">
     <span class="muted">NPP nhập: ${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"–"} (trước share: ${opsRaw(OPS_UI[1])!=null?fmt(opsRaw(OPS_UI[1])):"–"}) · Tham chiếu M-2: ${r?fmt(r.bike||0):"–"}</span></div>
   <p class="hint">${pmE("bike")}</p>
-  <datalist id="gasMaxList">${gasMaxOpts}</datalist>
+  ${gasMaxOpts?`<select class="pick" data-pick="bike"><option value="">Chọn giá xăng cao nhất…</option>${gasMaxOpts}</select>`:""}
   <details class="sec" style="margin-top:10px"><summary><span class="t">Định mức tiêu hao &amp; hệ số quãng đường</span><span class="tag">lít / 100 km</span></summary><div class="body">
     <div class="toolbar"><label class="chk" for="kmF">Hệ số quãng đường</label><input class="v" id="kmF" inputmode="decimal" value="${fmt(S.kmF,2)}" style="max-width:80px"><span class="muted">× km kế hoạch TMS (TMS_Planned_Distance), bù đường về kho</span></div>
     <div class="scroll"><table class="dt"><tbody>${Object.keys(S.norm).map(c=>`<tr><td class="l">${esc(c)}</td><td><input class="v" inputmode="decimal" data-norm="${esc(c)}" value="${fmt(S.norm[c],1)}" style="max-width:90px"></td></tr>`).join("")}</tbody></table></div>
@@ -1305,3 +1305,8 @@ safe(renderRecon);
 // Ẩn tab ngoài phạm vi quyền
 document.querySelectorAll(".tabs button").forEach(b=>{if(!tabOk(b.dataset.tab)){b.hidden=true;b.style.setProperty("display","none","important")}});
 goTab("pl");
+// Chọn giá tối đa từ danh sách: điền vào ô tương ứng và tính lại
+document.addEventListener("change",e=>{const sel=e.target;if(!(sel instanceof HTMLSelectElement)||!sel.classList.contains("pick")||!sel.value)return;
+  const inp=sel.dataset.pick==="do"?document.querySelector('input[data-fuel="truck"][data-m="'+sel.dataset.m+'"]'):document.querySelector('input[data-fin="bike"]');
+  if(inp){inp.value=sel.value;inp.dispatchEvent(new Event("change",{bubbles:true}))}
+  sel.value="";});
