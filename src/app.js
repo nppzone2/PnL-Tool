@@ -922,6 +922,8 @@ function applyOps(){const open=isOpen();
 
 // ---- Verify: fuel
 const DO_MAX={"2026-10":30246};
+// Giá xăng tối đa cao nhất trong tháng (Bộ Công Thương), dùng cho xe máy
+const GAS_MAX={"2026-10":{e5:27700,e10:28250}};
 function fuelMonths(n,m){return [addM(m,-1),m]}
 function fuelLatestBefore(v,m){const ks=new Set([...Object.keys((S.fuel||{})[fuelKey(v)]||{}),...Object.keys((S.fuel||{})[v]||{})]);const k=[...ks].filter(x=>x<m&&fuel(v,x)!=null).sort().pop();return k?{k,p:fuel(v,k)}:null}
 function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
@@ -929,6 +931,7 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
   const ms=fuelMonths(n,m),npp=opsTotal(OPS_UI[0]),nppRaw=opsRaw(OPS_UI[0]),sP=opsShare(OPS_UI[0]);
   // Ghi chú dưới mỗi Final: chi phí tháng trước theo P&L EDE (trước và sau share)
   const doMaxOpts=DO_MAX[m]?`<option value="${fmt(DO_MAX[m])}">DO cao nhất ${mLbl(m)}</option>`:"";
+  const gs=GAS_MAX[m]||{},gasMaxOpts=(gs.e5?`<option value="${fmt(gs.e5)}">E5 RON 92 cao nhất ${mLbl(m)}</option>`:"")+(gs.e10?`<option value="${fmt(gs.e10)}">E10 RON 95-III cao nhất ${mLbl(m)}</option>`:"");
   const pmE=k=>{const pk=addM(m,-1),g=(gisCostsFor(n.id,pk)||{})[k];if(!g||!g.v)return `${mLbl(pk)} theo P&amp;L EDE: chưa có số`;const sh=g.s??100;return `${mLbl(pk)} theo P&amp;L EDE: trước share ${fmt(g.v)} · sau share ${fmt(g.v*sh/100)}`};
   const rows=ms.map(k=>{const t=((tmsSum(k)||{})[n.id])||null,l=t?truckLitres(t):{L:null,km:null},po=fuel("truck",k),lb=k===m&&po==null?fuelLatestBefore("truck",m):null,p=po!=null?po:(lb?lb.p:null),prov=lb?lb.k:null,adj=fuelAdjOf(k),L2=t?l.L*(1+adj/100):null,c=(t&&p)?L2*p:null,mm=n.months[k],gp=(gisCostsFor(n.id,k)||{}).petro||{};
     const shv=k===m?(S.ops[okey()]||{}).petro_sh:gp.s;
@@ -951,9 +954,10 @@ const pm=rows.find(x=>x.k!==m)||null;return `<p class="hint">${[line(cur9),line(
   <div class="vfinal"><span>Final xăng dầu xe tải ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="petro" value="${fp!=null?fmt(fp):""}" placeholder="${nppRaw!=null?fmt(nppRaw):"nhập số final"}">
     <span class="muted">Để trống = dùng số NPP nhập</span></div>
   <p class="hint">${pmE("petro")}</p>
-  <div class="vfinal"><span>Final xăng dầu xe máy ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="bike" value="${FIN("bike")!=null?fmt(FIN("bike")):""}" placeholder="${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"nhập số final"}">
+  <div class="vfinal"><span>Final xăng dầu xe máy ${mLbl(m)}</span><input class="v" inputmode="decimal" list="gasMaxList" data-fin="bike" value="${FIN("bike")!=null?fmt(FIN("bike")):""}" placeholder="${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"nhập số final"}">
     <span class="muted">NPP nhập: ${opsTotal(OPS_UI[1])!=null?fmt(opsTotal(OPS_UI[1])):"–"} (trước share: ${opsRaw(OPS_UI[1])!=null?fmt(opsRaw(OPS_UI[1])):"–"}) · Tham chiếu M-2: ${r?fmt(r.bike||0):"–"}</span></div>
   <p class="hint">${pmE("bike")}</p>
+  <datalist id="gasMaxList">${gasMaxOpts}</datalist>
   <details class="sec" style="margin-top:10px"><summary><span class="t">Định mức tiêu hao &amp; hệ số quãng đường</span><span class="tag">lít / 100 km</span></summary><div class="body">
     <div class="toolbar"><label class="chk" for="kmF">Hệ số quãng đường</label><input class="v" id="kmF" inputmode="decimal" value="${fmt(S.kmF,2)}" style="max-width:80px"><span class="muted">× km kế hoạch TMS (TMS_Planned_Distance), bù đường về kho</span></div>
     <div class="scroll"><table class="dt"><tbody>${Object.keys(S.norm).map(c=>`<tr><td class="l">${esc(c)}</td><td><input class="v" inputmode="decimal" data-norm="${esc(c)}" value="${fmt(S.norm[c],1)}" style="max-width:90px"></td></tr>`).join("")}</tbody></table></div>
