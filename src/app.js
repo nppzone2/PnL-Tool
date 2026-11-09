@@ -293,26 +293,39 @@ function roiCauses(r){
   if(!pm||pm.open||!r.invest||!isFinite(r.roi))return `<div class="block roi-why"><p class="lead">Chưa có tháng trước đã chốt để so sánh ROI ${mLbl(mm)}.</p></div>`;
   const p=recFields(pm);if(!p.invest)return "";
   const I=r.invest,Ip=p.invest,roiP=p.pat/Ip*100,d=r.roi-roiP;
-  if(Math.abs(d)<=ROI_TH)return `<div class="block roi-why"><p class="lead">ROI ${mLbl(mm)} ${fmt(r.roi,2)}% so với ${mLbl(pmK)} ${fmt(roiP,2)}%: lệch ${d>0?"+":""}${fmt(d,2)} điểm, trong ngưỡng ±${ROI_TH} điểm, chưa cần phân tích nguyên nhân.</p></div>`;
-  const k=x=>x/I*100,cap=p.pat*(Ip-I)/(I*Ip)*100;
-  const items=[
-    ["Doanh thu",r.rev-p.rev],["Giá vốn",-(r.cogs-p.cogs)],["Chiết khấu WS",-(r.disc-p.disc)],
-    ["Chi phí kho",-(r.g.wh-p.g.wh)],["Chi phí vận chuyển",-(r.g.tr-p.g.tr)],["Chi phí quản lý & nhân sự",-(r.g.mg-p.g.mg)],
-    ["Chi phí thị trường",-(r.g.mk-p.g.mk)],["Chi phí vốn",-(r.g.cap-p.g.cap)],["Back margin (CD, DIP, KM)",r.oi-p.oi],["Thuế TNDN",-(r.tax-p.tax)]
-  ].map(([nm,v])=>({nm,v,pp:k(v)}));
-  const resid=(r.pat-p.pat)-items.reduce((a,x)=>a+x.v,0);
-  items.push({nm:"Khác",v:resid,pp:k(resid)});
-  const rows=items.filter(x=>Math.abs(x.pp)>=.01).sort((a,b)=>Math.abs(b.pp)-Math.abs(a.pp));
-  const capRow={nm:"Vốn đầu tư",v:null,pp:cap};
-  const top=[...rows,capRow].filter(x=>Math.abs(x.pp)>=.01).sort((a,b)=>Math.abs(b.pp)-Math.abs(a.pp)).slice(0,3);
-  const sg=x=>(x>0?"+":"")+fmt(x,2);
-  const trs=rows.map(x=>`<tr><td class="l">${x.nm}</td><td>${x.v>0?"+":""}${fmt(x.v/1e6,1)}</td><td><b class="${x.pp<0?"d-dn":""}">${sg(x.pp)}</b></td></tr>`).join("")
-    +`<tr><td class="l">${"Vốn đầu tư"}<small class="muted"> ${fmt(Ip/1e6,0)} → ${fmt(I/1e6,0)} tr</small></td><td>–</td><td><b class="${cap<0?"d-dn":""}">${sg(cap)}</b></td></tr>`;
-  return `<div class="block roi-why"><h3>Nguyên nhân ROI ${mLbl(mm)} ${d>0?"tăng":"giảm"} ${fmt(Math.abs(d),2)} điểm so với ${mLbl(pmK)}</h3>
-    <p class="lead">ROI ${fmt(r.roi,2)}% so với ${fmt(roiP,2)}% (${mLbl(pmK)}). Chủ yếu do: ${top.map(x=>`${x.nm} (${sg(x.pp)} điểm)`).join(", ")}${n.months[mm]&&n.months[mm].open?" Số tháng này còn dự phóng, sẽ đổi khi chốt.":""}</p>
-    <div class="scroll"><table class="dt"><thead><tr><th class="l">Yếu tố</th><th>Tác động PAT (tr đ)</th><th>Tác động ROI (điểm %)</th></tr></thead><tbody>${trs}</tbody></table></div></div>`;
+  const openNote=n.months[mm]&&n.months[mm].open?" Số tháng này còn dự phóng, sẽ đổi khi chốt.":"";
+  if(Math.abs(d)<=ROI_TH)return `<div class="block roi-why"><p class="lead">ROI ${mLbl(mm)} ${fmt(r.roi,2)}% so với ${mLbl(pmK)} ${fmt(roiP,2)}%: lệch ${d>0?"+":""}${fmt(d,2)} điểm, trong ngưỡng ±${ROI_TH} điểm, chưa cần phân tích nguyên nhân.${openNote}</p></div>`;
+  const pt=x=>x/I*100,sg=x=>(x>0?"+":"")+fmt(x,2);
+  const V=r.V||0,pV=pm.vol||0;
+  const per=(x,v)=>v?fmt(x/v,0)+" đ/thùng":"–";
+  const mny=v=>Math.abs(v)>=1e9?fmt(v/1e9,2)+" tỷ":fmt(v/1e6,0)+" tr";
+  const B=[];const add=(label,p2,text)=>{if(Math.abs(p2)>=.05)B.push({label,pt:p2,text})};
+  // Front margin và sản lượng
+  const gcP=p.rev-p.cogs-p.disc,vq=pV?(V-pV)/pV*100:NaN;
+  add("Front margin & sản lượng",pt(r.gc-gcP),`Front margin ${per(gcP,pV)} → ${per(r.gc,V)}, sản lượng ${isFinite(vq)?(vq>0?"+":"")+fmt(vq,1)+"%":"–"}`);
+  // Chi phí theo thùng
+  add("Vận chuyển",-pt(r.g.tr-p.g.tr),`Chi phí vận chuyển (gồm khấu hao xe) ${per(p.g.tr,pV)} → ${per(r.g.tr,V)}`);
+  add("Kho",-pt(r.g.wh-p.g.wh),`Chi phí kho ${per(p.g.wh,pV)} → ${per(r.g.wh,V)}`);
+  add("Nhân sự & quản lý",-pt(r.g.mg-p.g.mg),`Chi phí nhân sự & quản lý ${per(p.g.mg,pV)} → ${per(r.g.mg,V)}`);
+  add("Thị trường",-pt(r.g.mk-p.g.mk),r.g.mk===0&&p.g.mk>0?`Không còn chi phí thị trường (trước ${mny(p.g.mk)})`:`Chi phí thị trường ${per(p.g.mk,pV)} → ${per(r.g.mk,V)}`);
+  add("Chi phí vốn",-pt(r.g.cap-p.g.cap),`Chi phí vốn ${mny(p.g.cap)} → ${mny(r.g.cap)}`);
+  add("Back margin",pt(r.oi-p.oi),`Back margin & thu nhập khác ${mny(p.oi)} → ${mny(r.oi)}`);
+  add("Thuế",-pt(r.tax-p.tax),`Thuế TNDN ${mny(p.tax)} → ${mny(r.tax)}`);
+  // Vốn đầu tư: phần mẫu số, tách theo từng khoản
+  const comps=[["tồn kho","inv"],["credit for outlets","credit"],["current account","curAcc"],["CD hold","cdHold"],["tiền đặt cọc","deposit"],["tài sản còn lại","fixed"]];
+  const det=[];let capTot=0;
+  comps.forEach(([lb,k])=>{const cv=k==="fixed"?fixedCalc():val(k),pv=pm[k]||0,dI=cv-pv;capTot+=p.pat*(-dI)/(I*Ip)*100;if(Math.abs(dI)>=1e6)det.push(`${lb} ${mny(pv)} → ${mny(cv)} (${sg(p.pat*(-dI)/(I*Ip)*100)})`)});
+  add("Vốn đầu tư",capTot,`Vốn đầu tư ${mny(Ip)} → ${mny(I)}${det.length?": "+det.join("; "):""}`);
+  // Phần còn lại không giải thích được
+  const dPat=r.pat-p.pat,explained=B.reduce((a,b)=>a+b.pt,0)+0;
+  const resid=(d-explained);add("Khác",resid,"Chênh lệch cấu trúc số liệu");
+  B.sort((a,b)=>Math.abs(b.pt)-Math.abs(a.pt));
+  const top=B.slice(0,3);
+  return `<div class="block roi-why"><h3>Đánh giá nguyên nhân ROI ${mLbl(mm)}</h3>
+    <p class="lead">ROI ${fmt(r.roi,2)}% so với ${fmt(roiP,2)}% (${mLbl(pmK)}), ${d>0?"tăng":"giảm"} ${fmt(Math.abs(d),2)} điểm.${openNote}</p>
+    <ul class="roi-list"><li><b>${n.code} (${sg(d)}):</b> chủ yếu do ${top.map(b=>`${b.label.toLowerCase()} (${sg(b.pt)})`).join(", ")}.
+      <ul>${B.map(b=>`<li>${b.text} <b class="${b.pt<0?"d-dn":""}">(${sg(b.pt)} điểm)</b></li>`).join("")}</ul></li></ul></div>`;
 }
-
 function render(r){
   const V=r.V,M=n=>fmt(n/1e6,1),sgn=n=>n<0?' class="neg"':"",n=cur(),mm=mon(),act=n.months[mm];
   const costs=[["Warehouse","wh"],["Transportation","tr"],["Management","mg"],["Market investment","mk"],["Capital cost","cap"]];
