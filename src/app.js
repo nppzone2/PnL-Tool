@@ -185,7 +185,9 @@ function toggleMode(){const md=modeOf();$("#soBox").hidden=md!=="so";$("#edeBox"
 // phần lệch còn lại cộng/trừ vào giá kênh ON (SKU sản lượng ON lớn trước, làm tròn 1.000 đ).
 const edePr=(dis,m)=>((S.gis.prices||{})[dis]||{})[m]||null;
 const r1k=v=>Math.round(v/1000)*1000,r500=v=>Math.round(v/500)*500;
-function edeOk(){const n=cur(),mm=mon(),m=n.months[mm];if(!m||m.open||!m.vol||!segHas(mm)||!edePr(n.id,mm))return false;const so=soFor(n.id,mm);return !!(so&&Object.keys(so).length)}
+// Từ T9 trở đi doanh thu lấy giá chính thức NPP nhập (SO × giá bán), không dùng logic cân đối EDE của T1–T8
+const EDE_REV_LAST="2026-08";
+function edeOk(){const n=cur(),mm=mon(),m=n.months[mm];if(!m||m.open||mm>EDE_REV_LAST||!m.vol||!segHas(mm)||!edePr(n.id,mm))return false;const so=soFor(n.id,mm);return !!(so&&Object.keys(so).length)}
 // Giá NPP nhập trên web (tab Giá bán) của tháng gần nhất có số; chưa có thì lấy giá On-Off (Val02) của lần nhập EDE mới nhất
 const TPL_M="2026-09"; // giá mẫu cố định: giá NPP nhập tháng T9
 function tplPrices(dis){const k0=dis+"|"+TPL_M;if(S.prices[k0]&&Object.values(S.prices[k0]).some(p=>p&&(p.OFF||p.ON)))return {m:TPL_M,p:S.prices[k0],src:"web"};const t9=(typeof TPL_T9!=="undefined"&&TPL_T9||{})[k0];if(t9&&Object.values(t9).some(p=>p&&(p.OFF||p.ON)))return {m:TPL_M,p:t9,src:"web"};const ks=Object.keys(S.prices||{}).filter(k=>k.startsWith(dis+"|")&&Object.values(S.prices[k]||{}).some(p=>p&&(p.OFF||p.ON))).sort();
