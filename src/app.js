@@ -92,7 +92,7 @@ function effPrice(sku,ch){const t=typed(sku,ch);if(t)return {v:t,src:"input"};
   return {v:cur().lastSell,src:"avg"}}
 function skuList(so,all){const set=new Set();if(so)Object.keys(so).forEach(k=>set.add(k));if(all)GIS_SKUS.forEach(s=>set.add(s[0]));
   const order=GIS_SKUS.map(s=>s[0]);return [...set].sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b)})}
-const soSkus=so=>skuList(so,false).filter(k=>{const r=so[k];return r.SDIS+r.OFF+r.ON+r.NA>0});
+const soSkus=so=>skuList(so,false).filter(k=>{const r=so[k];return r.SDIS+r.OFF+r.ON+r.NA>0}).sort((x,y)=>x.localeCompare(y,"en",{numeric:true}));
 function retailBlend(sku,so){const r=so&&so[sku]||{OFF:0,ON:0};let wo=r.OFF,wn=r.ON;
   if(wo+wn<=0){wo=0;wn=0;for(const k in so||{}){wo+=so[k].OFF;wn+=so[k].ON}}
   const off=typed(sku,"OFF"),on=typed(sku,"ON");if(!off&&!on)return {v:null,share:wo+wn?wo/(wo+wn):NaN};
@@ -432,22 +432,23 @@ function renderPrice(){
   const EX=mo&&!mo.open&&edeOk()?Object.fromEntries(edeRev().rows.map(r=>[r.sku,r])):{};
   const pv=(sku,c)=>{const e=EX[sku];if(e){const x=c==="SDIS"?e.ws:c==="OFF"?e.off:e.on;return x?{v:x,src:"ede"}:null}const t=typed(sku,c);return t?{v:t,src:"input"}:null}; // tháng đã chốt EDE: khoá, không lấy số nhập tay
   const pvv=(sku,c)=>{const p=pv(sku,c);return p?p.v:null};
-  let tot={SDIS:0,OFF:0,ON:0},rv={SDIS:0,OFF:0,ON:0},buyT=0;
+  let tot={SDIS:0,OFF:0,ON:0,NA:0},rv={SDIS:0,OFF:0,ON:0},buyT=0;
+  const showNA=list.some(s=>so[s].NA>0); // SKU chỉ có sản lượng chưa gán Channel vẫn hiện, không để dấu –
   $("#skuCount").textContent=so?`${list.length} SKU có sản lượng SO trong ${mLbl(mon())}`:"";
   let below=0;
-  const rows=list.map(sku=>{const r=so&&so[sku]||{SDIS:0,OFF:0,ON:0,NA:0},ref=refPrice(n.id,mon(),sku),bp=buyPrice(sku);CH.forEach(c=>{tot[c]+=r[c];const v=pvv(sku,c);if(v&&r[c])rv[c]+=r[c]*v});buyT+=(bp?bp.v:0)*CH.reduce((x,c)=>x+(r[c]||0),0);
+  const rows=list.map(sku=>{const r=so&&so[sku]||{SDIS:0,OFF:0,ON:0,NA:0},ref=refPrice(n.id,mon(),sku),bp=buyPrice(sku);tot.NA+=r.NA;CH.forEach(c=>{tot[c]+=r[c];const v=pvv(sku,c);if(v&&r[c])rv[c]+=r[c]*v});buyT+=(bp?bp.v:0)*CH.reduce((x,c)=>x+(r[c]||0),0);
     const ph=c=>ref&&ref[c]?fmt(ref[c]):"";const lo=c=>bp&&pvv(sku,c)&&pvv(sku,c)<bp.v,hi=c=>bp&&pvv(sku,c)&&pvv(sku,c)>bp.v*1.1,wl=c=>c!=="SDIS"&&pvv(sku,c)&&pvv(sku,"SDIS")&&pvv(sku,c)<pvv(sku,"SDIS");
     const red=c=>lo(c)||hi(c),anyLo=CH.some(lo),anyRed=CH.some(red);if(anyLo)below++;
     const pcls=c=>red(c)?"lowp":wl(c)?"warnp":"",ptip=c=>lo(c)?`Thấp hơn giá nhập ${fmt(bp.v)} đ`:hi(c)?`Cao hơn giá nhập 10% (${fmt(bp.v)} đ)`:wl(c)?`Thấp hơn giá Sdis ${fmt(pvv(sku,"SDIS"))} đ`:"";
     return `<tr${anyRed||CH.some(wl)?' class="hotrow"':""}><td class="l"><b>${sku}${ON_FORM.has(sku)?"":' <span class="chip">ngoài form GIS</span>'}</b><small>${esc(SKU_NAME[sku]||"")}</small></td>
-      ${CH.map(c=>`<td>${r[c]?fmt(r[c]):'<span class="muted">–</span>'}</td>`).join("")}
+      ${CH.map(c=>`<td>${r[c]?fmt(r[c]):'<span class="muted">–</span>'}</td>`).join("")}${showNA?`<td>${r.NA?fmt(r.NA):'<span class="muted">–</span>'}</td>`:""}
       <td><input class="v buy" inputmode="decimal" id="p_${sku}_BUY" data-sku="${sku}" data-ch="BUY" placeholder="nhập" value="${bp?fmt(bp.v):""}" title="${bp&&bp.src==="SI"?`Từ file SaleIn Amount${S.buyVat?`, cộng VAT ${vatOf(sku)*100}%`:""}`:"Nhập tay"}"></td>
       ${CH.map(c=>{const p=pv(sku,c),ed=p&&p.src==="ede";return `<td><input class="v ${pcls(c)}${ed?" ede":""}"${ed?" readonly":""} inputmode="decimal" id="p_${sku}_${c}" data-sku="${sku}" data-ch="${c}" placeholder="${ph(c)}" value="${p?fmt(p.v):""}"${ptip(c)?` title="${ptip(c)}"`:ed?' title="Khoá: giá EDE đã chốt theo doanh thu PnL"':""}></td>`}).join("")}
 </tr>`}).join("");
-  $("#priceT").innerHTML=`<thead><tr class="grp"><th class="l"></th><th colspan="3">Sản lượng SO (thùng)</th><th>Giá nhập</th><th colspan="3">Giá bán / thùng</th></tr>
-    <tr><th class="l">SKU</th>${CH.map(c=>`<th><span class="chip ${c}">${c}</span></th>`).join("")}<th>${S.buyVat?"Gồm VAT":"Chưa VAT"}</th><th>Giá Sdis</th><th>Giá OFF</th><th>Giá ON</th></tr></thead>
+  $("#priceT").innerHTML=`<thead><tr class="grp"><th class="l"></th><th colspan="${showNA?4:3}">Sản lượng SO (thùng)</th><th>Giá nhập</th><th colspan="3">Giá bán / thùng</th></tr>
+    <tr><th class="l">SKU</th>${CH.map(c=>`<th><span class="chip ${c}">${c}</span></th>`).join("")}${showNA?'<th><span class="chip">Chưa gán</span></th>':""}<th>${S.buyVat?"Gồm VAT":"Chưa VAT"}</th><th>Giá Sdis</th><th>Giá OFF</th><th>Giá ON</th></tr></thead>
     <tbody>${rows||`<tr><td class="l" colspan="8">${so?`${cur().code} không có dòng nào trong file SO ${mLbl(mon())}.`:`Chưa có file SO cho ${mLbl(mon())}. Nạp file SO ở tab Dữ liệu nguồn hoặc chọn tháng có dữ liệu SO.`}</td></tr>`}</tbody>
-    <tfoot><tr><td class="l">Tổng sản lượng</td>${CH.map(c=>`<td>${fmt(tot[c])}</td>`).join("")}<td colspan="4"></td></tr><tr class="revrow"><td class="l">Doanh thu theo kênh (đ)</td><td colspan="4"></td>${CH.map(c=>`<td>${fmt(rv[c])}</td>`).join("")}</tr></tfoot>`;
+    <tfoot><tr><td class="l">Tổng sản lượng</td>${CH.map(c=>`<td>${fmt(tot[c])}</td>`).join("")}${showNA?`<td>${fmt(tot.NA)}</td>`:""}<td colspan="4"></td></tr><tr class="revrow"><td class="l">Doanh thu theo kênh (đ)</td><td colspan="${showNA?5:4}"></td>${CH.map(c=>`<td>${fmt(rv[c])}</td>`).join("")}</tr></tfoot>`;
   renderPriceKpi(buyT,rv);
   $("#skuCount").innerHTML=so?`${list.length} SKU có sản lượng SO trong ${mLbl(mon())}${below?` · <b style="color:var(--red)">${below} SKU có giá bán thấp hơn giá nhập</b>`:""}`:"";
   if(Object.keys(EX).length)$("#skuCount").innerHTML+=" · giá OFF/ON/Sdis khoá theo EDE đã chốt (màu xanh)";
@@ -463,7 +464,7 @@ $("#clearPrice").onclick=()=>{delete S.prices[pkey()];LS.set("prices",S.prices);
 
 // ---- GIS input tab (reference sheet, same layout as company form)
 function gisRows(){const n=cur(),so=soFor(n.id,mon());
-  return skuList(so,true).filter(s=>ON_FORM.has(s)||(so&&so[s])).sort((x,y)=>x.localeCompare(y,"en",{numeric:true})).map(sku=>{const ws=typed(sku,"SDIS"),b=retailBlend(sku,so),r=so&&so[sku]||{};
+  return soSkus(so).map(sku=>{const ws=typed(sku,"SDIS"),b=retailBlend(sku,so),r=so&&so[sku]||{};
     return {sku,name:`${sku} - ${SKU_NAME[sku]||""}`,ws:finPrice(sku,"ws")??ws,rt:finPrice(sku,"rt")??rt1k(b.v),share:b.share,vol:(r.SDIS||0)+(r.OFF||0)+(r.ON||0)}})}
 const GIS_OPS=[["Total Depreciation / Tổng khấu hao",["depTruck","depFork","depTools"]],["Total Transportation - Tổng CP vận chuyển",["petro","bike","trOther"]],["Total management cost - Chi phí nhân sự",["hireWh","driver","whKeeper","dsm","mgmt","office","otherFee"]]];
 const OPS_SHARED=new Set(["petro","bike","trOther","hireWh","driver"]),OPS_SHARE_ID={petro:"petro",bike:"bike",trOther:"rent",hireWh:"wh",driver:"drv"};
