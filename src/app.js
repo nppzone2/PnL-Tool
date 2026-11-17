@@ -951,7 +951,7 @@ function renderVerify(){const n=cur(),m=mon(),o=S.ops[okey()]||{},r=refM();
     <td data-label="Chi phí NPP sau share">${x.act!=null?`<b>${fmt(x.act)}</b>`:'<span class="muted">chưa nhập</span>'}${x.pre!=null?`<br><small class="muted">${fmt(x.pre)}</small>`:""}</td>
     <td data-label="Chênh lệch">${d!=null?`<span class="${Math.abs(d)/x.cs>.15?"d-dn":""}"><b>${d>0?"+":""}${fmt(d)}</b><br><small>${d>0?"+":""}${fmt(d/x.cs*100,1)}%</small></span>`:"–"}</td></tr>`}).join("")}
   </tbody></table></div>
-  ${(()=>{const line=x=>!x?"":x.cs==null?`${mLbl(x.k)}: ${x.L2==null?"chưa có dữ liệu TMS":x.c==null?"chưa có giá xăng":"chưa nhập % share NPP"}`:x.act==null?`${mLbl(x.k)}: TMS sau share ${fmt(x.cs)}, NPP chưa nhập`:`${mLbl(x.k)}: TMS sau share ${fmt(x.cs)}, NPP ${fmt(x.act)}, chênh ${x.act-x.cs>0?"+":""}${fmt((x.act-x.cs)/x.cs*100,1)}%${x.prov?` (giá tạm tính theo ${mLbl(x.prov)})`:""}`;
+  ${(()=>{const line=x=>!x?"":x.c==null?`${mLbl(x.k)}: ${x.L2==null?"chưa có dữ liệu TMS":"chưa có giá xăng"}`:x.pre==null?`${mLbl(x.k)}: TMS trước share ${fmt(x.c)}, NPP chưa nhập`:`${mLbl(x.k)}: TMS trước share ${fmt(x.c)}, NPP trước share ${fmt(x.pre)}, chênh ${x.pre-x.c>0?"+":""}${fmt((x.pre-x.c)/x.c*100,1)}%${x.prov?` (giá tạm tính theo ${mLbl(x.prov)})`:""}`;
 const pm=rows.find(x=>x.k!==m)||null;return `<p class="hint">${[line(cur9),line(pm)].filter(Boolean).join("<br>")}</p>`})()}
   <div class="vfinal"><span>Final xăng dầu xe tải ${mLbl(m)}</span><input class="v" inputmode="decimal" data-fin="petro" value="${fp!=null?fmt(fp):""}" placeholder="${nppRaw!=null?fmt(nppRaw):"nhập số final"}">
     <span class="muted">Để trống = dùng số NPP nhập</span></div>
