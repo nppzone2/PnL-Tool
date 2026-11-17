@@ -92,7 +92,8 @@ function effPrice(sku,ch){const t=typed(sku,ch);if(t)return {v:t,src:"input"};
   return {v:cur().lastSell,src:"avg"}}
 function skuList(so,all){const set=new Set();if(so)Object.keys(so).forEach(k=>set.add(k));if(all)GIS_SKUS.forEach(s=>set.add(s[0]));
   const order=GIS_SKUS.map(s=>s[0]);return [...set].sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b)})}
-const soSkus=so=>skuList(so,false).filter(k=>{const r=so[k];return r.SDIS+r.OFF+r.ON+r.NA>0}).sort((x,y)=>x.localeCompare(y,"en",{numeric:true}));
+// SKU có giao dịch SO trong tháng (kể cả khi SO và CO cùng tháng bù nhau về 0) vẫn hiện để nhập giá; sắp A-Z
+const soSkus=so=>skuList(so,false).sort((x,y)=>x.localeCompare(y,"en",{numeric:true}));
 function retailBlend(sku,so){const r=so&&so[sku]||{OFF:0,ON:0};let wo=r.OFF,wn=r.ON;
   if(wo+wn<=0){wo=0;wn=0;for(const k in so||{}){wo+=so[k].OFF;wn+=so[k].ON}}
   const off=typed(sku,"OFF"),on=typed(sku,"ON");if(!off&&!on)return {v:null,share:wo+wn?wo/(wo+wn):NaN};
